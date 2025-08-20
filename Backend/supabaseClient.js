@@ -1,5 +1,6 @@
 // supabaseClient.js
-require('dotenv').config({ path: '../.env' }); // Path to .env in the parent folder
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') }); // Path to .env in the parent folder
 
 const { createClient } = require('@supabase/supabase-js');
 
