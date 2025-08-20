@@ -24,8 +24,8 @@
   margin-bottom: 16px;
 }
 .password-input-container input {
-  width: 100%;
-  padding-right: 40px;
+  width: 90%;
+  padding-right: 30px;
   margin-bottom: 0;
 }
 .password-toggle {
