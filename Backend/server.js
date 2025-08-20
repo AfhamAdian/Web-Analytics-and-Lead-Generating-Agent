@@ -114,13 +114,12 @@ app.post('/api/login', async (req, res) => {
 // Example: Fetch data from the 'your_table_name' table
 app.get('/fetch-data', async (req, res) => {
   const { data, error } = await supabase
-    .from('events') // Replace with your table name
-    .select('*'); // You can modify this query as needed
-
-  if (error) {
+    .from('events') 
+    .select('*'); 
+  
+    if (error) {
     return res.status(500).json({ error: error.message });
   }
-
   res.status(200).json(data);
 });
 
