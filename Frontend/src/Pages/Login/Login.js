@@ -8,6 +8,8 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
+  console.log('Login component rendered');
+
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -19,8 +21,10 @@ function Login() {
       console.log('Submitting login form with:', { email: form.email });
       // Replace with your backend login endpoint
       const res = await axios.post('http://localhost:5000/api/login', form);
-      console.log('Login successful:', res.data);
+      console.log('Login successful');
+      alert('Login successful! Welcome back.');
       localStorage.setItem('token', res.data.token);
+
       navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
