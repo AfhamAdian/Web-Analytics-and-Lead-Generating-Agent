@@ -11,269 +11,246 @@
       console.error("❌ Analytics Error: Invalid or missing site-id attribute");
       return;
     }
-
-    // Get session start time (first page load in this tab)
-    if (!sessionStorage.getItem("sessionStart")) {
-      sessionStorage.setItem("sessionStart", Date.now());
-    }
-    const sessionStart = parseInt(sessionStorage.getItem("sessionStart"), 10);
-
-    // Calculate session duration so far (in seconds)
-    const sessionDuration = Math.floor((Date.now() - sessionStart) / 1000);
-
-    // Browser detection
-    const userAgent = navigator.userAgent;
-    const browser = getBrowserName(userAgent);
-    const os = getOSName(userAgent);
-
-    // Generate or get session ID
-    let sessionId = sessionStorage.getItem("sessionId");
-    if (!sessionId) {
-      // Generate new session ID (UUID-like format)
-      sessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        const r = Math.random() * 16 | 0;
-        const v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
-      sessionStorage.setItem("sessionId", sessionId);
-
-      // Start new session
-      const sessionData = {
-        siteId,
-        sessionId,
-        browser,
-        os,
-        userAgent,
-        action: "start"
-      };
-
-      console.log("Starting new session:", sessionData);
-
-      fetch("http://localhost:5000/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sessionData),
-        keepalive: true,
-      }).catch((err) => {
-        console.warn("Session start tracking failed:", err);
-      });
-    }
-
-    // Track page view
-    const pageData = {
-      siteId,
-      sessionId,
-      url: window.location.href,
-      title: document.title,
-      timestamp: Date.now()
-    };
-
-    console.log("Tracking page view:", pageData);
-
-    fetch("http://localhost:5000/api/pageviews", {
-      method: "POST", 
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pageData),
-      keepalive: true,
-    }).catch((err) => {
-      console.warn("Page view tracking failed:", err);
-    });
-
-    // Enhanced User Interaction Tracking
-    
-    // Track all button clicks
-    document.addEventListener('click', (event) => {
-      const element = event.target;
-      
-      // Track button clicks
-      if (element.tagName === 'BUTTON' || element.type === 'button' || element.type === 'submit') {
-        const buttonData = {
-          siteId,
-          sessionId,
-          event: 'button_click',
-          buttonText: element.textContent || element.value || 'Unknown',
-          buttonId: element.id || null,
-          buttonClass: element.className || null,
-          url: window.location.href,
-          timestamp: Date.now()
-        };
-        
-        console.log("Button clicked:", buttonData);
-        
-        fetch("http://localhost:5000/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(buttonData),
-          keepalive: true,
-        }).catch((err) => {
-          console.warn("Button click tracking failed:", err);
-        });
-      }
-      
-      // Track link clicks
-      if (element.tagName === 'A') {
-        const linkData = {
-          siteId,
-          sessionId,
-          event: 'link_click',
-          linkText: element.textContent || 'Unknown',
-          linkUrl: element.href || null,
-          linkId: element.id || null,
-          url: window.location.href,
-          timestamp: Date.now()
-        };
-        
-        console.log("Link clicked:", linkData);
-        
-        fetch("http://localhost:5000/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(linkData),
-          keepalive: true,
-        }).catch((err) => {
-          console.warn("Link click tracking failed:", err);
-        });
-      }
-    });
-
-    // Track form submissions
-    document.addEventListener('submit', (event) => {
-      const form = event.target;
-      const formData = {
-        siteId,
-        sessionId,
-        event: 'form_submit',
-        formId: form.id || null,
-        formClass: form.className || null,
-        url: window.location.href,
-        timestamp: Date.now()
-      };
-      
-      console.log("Form submitted:", formData);
-      
-      fetch("http://localhost:5000/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-        keepalive: true,
-      }).catch((err) => {
-        console.warn("Form submit tracking failed:", err);
-      });
-    });
-
-    // Track scroll depth
-    let maxScrollDepth = 0;
-    window.addEventListener('scroll', () => {
-      const scrollPercent = Math.round((window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100);
-      
-      if (scrollPercent > maxScrollDepth && scrollPercent % 25 === 0) { // Track every 25%
-        maxScrollDepth = scrollPercent;
-        
-        const scrollData = {
-          siteId,
-          sessionId,
-          event: 'scroll_depth',
-          scrollPercent: scrollPercent,
-          url: window.location.href,
-          timestamp: Date.now()
-        };
-        
-        console.log("Scroll depth:", scrollData);
-        
-        fetch("http://localhost:5000/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(scrollData),
-          keepalive: true,
-        }).catch((err) => {
-          console.warn("Scroll tracking failed:", err);
-        });
-      }
-    });
-
-    // Track time spent on page
-    let pageStartTime = Date.now();
-    window.addEventListener('beforeunload', () => {
-      const timeSpent = Math.floor((Date.now() - pageStartTime) / 1000);
-      
-      if (timeSpent > 5) { // Only track if user spent more than 5 seconds
-        const timeData = {
-          siteId,
-          sessionId,
-          event: 'time_on_page',
-          timeSpent: timeSpent,
-          url: window.location.href,
-          timestamp: Date.now()
-        };
-        
-        fetch("http://localhost:5000/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(timeData),
-          keepalive: true,
-        }).catch((err) => {
-          console.warn("Time tracking failed:", err);
-        });
-      }
-    });
-
-    // Handle session end on page unload
-    const endSession = () => {
-      const endData = {
-        siteId,
-        sessionId,
-        sessionDuration: Math.floor((Date.now() - sessionStart) / 1000),
-        action: "end"
-      };
-
-      fetch("http://localhost:5000/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(endData),
-        keepalive: true,
-      }).catch((err) => {
-        console.warn("Session end tracking failed:", err);
-      });
-    };
-
-    // Add event listeners for session end
-    window.addEventListener('beforeunload', endSession);
-    window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        endSession();
-      }
-    });
-
-    // Helper functions for browser/OS detection
-    function getBrowserName(userAgent) {
-      if (userAgent.includes("Chrome")) return "Chrome";
-      if (userAgent.includes("Firefox")) return "Firefox";
-      if (userAgent.includes("Safari")) return "Safari";
-      if (userAgent.includes("Edge")) return "Edge";
-      return "Unknown";
-    }
-
-    function getOSName(userAgent) {
-      if (userAgent.includes("Windows")) return "Windows";
-      if (userAgent.includes("Mac")) return "macOS";
-      if (userAgent.includes("Linux")) return "Linux";
-      if (userAgent.includes("Android")) return "Android";
-      if (userAgent.includes("iOS")) return "iOS";
-      return "Unknown";
-    }
-
   } catch (error) {
     console.error("Error in tracking script:", error);
   }
 })();
 
 
+//cookie consent and user tracking
+const cookieConsent = {
+  accepted: false,
+  userId: null,
+  pageViews: {},
+  
+  setAccepted: function () {
+    this.accepted = true;
+    localStorage.setItem("cookieConsent", "accepted");
+    
+    // Check if unique ID already exists in cookies
+    this.userId = this.getCookie("uniqueUserId");
+    
+    if (!this.userId) {
+      // Check if user previously allowed ID generation
+      const idGenerationAllowed = localStorage.getItem("idGenerationAllowed");
+      
+      if (idGenerationAllowed === "true") {
+        // Generate ID without asking (user already gave permission)
+        this.userId = this.generateUserId();
+        this.setCookie("uniqueUserId", this.userId, 365);
+        console.log("🆔 New unique user ID generated (permission already granted):", this.userId);
+        this.initializePageTracking();
+      } else if (idGenerationAllowed !== "false") {
+        // Ask for permission to generate ID
+        this.askForIdGeneration();
+      } else {
+        console.log("❌ ID generation not allowed by user");
+      }
+    } else {
+      console.log("🔄 Using existing user ID from cookies:", this.userId);
+      this.initializePageTracking();
+    }
+  },
+  
+  checkConsent: function () {
+    const consent = localStorage.getItem("cookieConsent");
+    this.accepted = consent === "accepted";
+    
+    if (this.accepted) {
+      // Get existing user ID from cookie
+      this.userId = this.getCookie("uniqueUserId");
+      
+      if (!this.userId) {
+        // Ask permission before generating new unique ID
+        this.askForIdGeneration();
+      } else {
+        console.log("🔄 Returning user with ID:", this.userId);
+        this.initializePageTracking();
+      }
+    }
+  },
+  
+  generateUserId: function () {
+    // Generate UUID-like unique ID
+    return 'user_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = Math.random() * 16 | 0;
+      const v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  },
+  
+  setCookie: function (name, value, days) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = name + '=' + value + ';expires=' + expires.toUTCString() + ';path=/;SameSite=Lax';
+  },
+  
+  getCookie: function (name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+  },
+  
+  askForIdGeneration: function () {
+    // Create permission dialog
+    const dialog = document.createElement('div');
+    dialog.id = 'id-generation-dialog';
+    dialog.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 10001;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: Arial, sans-serif;
+      ">
+        <div style="
+          background: white;
+          padding: 30px;
+          border-radius: 10px;
+          max-width: 500px;
+          margin: 20px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        ">
+          <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">🆔 Generate Unique ID</h3>
+          <p style="margin: 0 0 20px 0; color: #34495e; line-height: 1.6; text-align: center;">
+            We need to generate a unique identifier for your browser session. This helps us provide better analytics and personalized experience.
+          </p>
+          <p style="margin: 0 0 25px 0; color: #7f8c8d; font-size: 14px; text-align: center;">
+            <strong>Note:</strong> This ID will be stored in your browser cookies and used for tracking purposes.
+          </p>
+          <div style="display: flex; gap: 15px; justify-content: center;">
+            <button id="allow-id-generation" style="
+              background: #27ae60;
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: bold;
+            ">Allow ID Generation</button>
+            <button id="deny-id-generation" style="
+              background: #e74c3c;
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+            ">Deny</button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(dialog);
+    
+    // Add event listeners
+    document.getElementById('allow-id-generation').onclick = () => {
+      // Generate and save unique ID
+      this.userId = this.generateUserId();
+      this.setCookie("uniqueUserId", this.userId, 365);
+      localStorage.setItem("idGenerationAllowed", "true");
+      dialog.remove();
+      console.log("✅ Permission granted! Unique ID generated:", this.userId);
+    };
+    
+    document.getElementById('deny-id-generation').onclick = () => {
+      localStorage.setItem("idGenerationAllowed", "false");
+      dialog.remove();
+      console.log("❌ Permission denied for ID generation");
+    };
+  },
+  
+  showConsentBanner: function () {
+    if (this.accepted) return;
+    
+    // Create consent banner
+    const banner = document.createElement('div');
+    banner.id = 'cookie-consent-banner';
+    banner.innerHTML = `
+      <div style="
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #2c3e50;
+        color: white;
+        padding: 20px;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 10000;
+        font-family: Arial, sans-serif;
+      ">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+          <div style="flex: 1; min-width: 300px;">
+            <h4 style="margin: 0 0 10px 0; color: #ecf0f1;">🍪 Cookie Consent</h4>
+            <p style="margin: 0; font-size: 14px; line-height: 1.4;">
+              We use cookies to enhance your experience and track analytics. By accepting, you'll get a unique ID that persists across your visits.
+            </p>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="accept-cookies" style="
+              background: #27ae60;
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: bold;
+            ">Accept Cookies</button>
+            <button id="decline-cookies" style="
+              background: #e74c3c;
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+            ">Decline</button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(banner);
+    
+    // Add event listeners
+    document.getElementById('accept-cookies').onclick = () => {
+      this.setAccepted();
+      banner.remove();
+      console.log("✅ Cookies accepted! User ID:", this.userId);
+    };
+    
+    document.getElementById('decline-cookies').onclick = () => {
+      banner.remove();
+      console.log("❌ Cookies declined");
+    };
+  }
+};
 
+// Initialize cookie consent
+cookieConsent.checkConsent();
 
-
-
-
-
+// Show banner when page loads
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    cookieConsent.showConsentBanner();
+  });
+} else {
+  cookieConsent.showConsentBanner();
+}
 
 
 /*

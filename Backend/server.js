@@ -18,7 +18,7 @@ app.post('/api/signup', async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
 
-    console.log("alveeis talented")
+    // console.log("alveeis talented")
 
     // Validate input
     if (!name || !email || !phone || !password) {
@@ -110,6 +110,64 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+// Pageviews endpoint - Handle page view tracking data
+app.post('/api/pageviews', async (req, res) => {
+  try {
+    const { siteId, sessionId, pageViews, timestamp } = req.body;
+    console.log("alvee is here  ")
+    console.log('📊 Received page view data:', {
+      siteId,
+      sessionId,
+      pageViews,
+      timestamp: new Date(timestamp).toISOString()
+    });
+
+    // Validate required fields
+    if (!siteId || !sessionId || !pageViews || !timestamp) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: siteId, sessionId, pageViews, timestamp' 
+      });
+    }
+
+    // Insert page view data into Supabase
+    const { data, error } = await supabase
+      .from('page_views') // Make sure this table exists in your Supabase
+      .insert([
+        {
+          site_id: siteId,
+          session_id: sessionId,
+          page_views: pageViews, // JSON object with page paths and counts
+          timestamp: new Date(timestamp).toISOString(),
+          created_at: new Date().toISOString()
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('❌ Supabase error saving page views:', error);
+      return res.status(500).json({ 
+        message: 'Failed to save page view data', 
+        error: error.message 
+      });
+    }
+
+    console.log('✅ Page view data saved successfully:', data[0]);
+
+    res.status(201).json({ 
+      message: 'Page view data saved successfully',
+      data: data[0]
+    });
+
+  } catch (error) {
+    console.error('❌ Page view tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
 
 
 
