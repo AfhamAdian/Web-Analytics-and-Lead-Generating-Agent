@@ -111,6 +111,14 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+
+
+app.post('/api/signup', (req, res) => {
+  const { name, email, phone, password } = req.body;
+  console.log("Received signup request:", { name, email, phone });
+})
+
+
 // Example: Fetch data from the 'your_table_name' table
 app.get('/fetch-data', async (req, res) => {
   const { data, error } = await supabase
