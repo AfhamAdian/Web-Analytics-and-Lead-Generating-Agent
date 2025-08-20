@@ -115,7 +115,7 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/pageviews', async (req, res) => {
   try {
     const { siteId, sessionId, pageViews, timestamp } = req.body;
-    console.log("alvee is here  ")
+    console.log("pageview is here  ")
     console.log('📊 Received page view data:', {
       siteId,
       sessionId,

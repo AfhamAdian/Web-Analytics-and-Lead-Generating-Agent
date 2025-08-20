@@ -7,7 +7,7 @@
     console.log("Analytics script loaded for site:", siteId);
     
     // Validate site ID exists
-    if (!siteId) {
+    if (!siteId) {-
       console.error("❌ Analytics Error: Invalid or missing site-id attribute");
       return;
     }
@@ -164,6 +164,7 @@ const cookieConsent = {
       localStorage.setItem("idGenerationAllowed", "true");
       dialog.remove();
       console.log("✅ Permission granted! Unique ID generated:", this.userId);
+      this.initializePageTracking();
     };
     
     document.getElementById('deny-id-generation').onclick = () => {
@@ -237,6 +238,138 @@ const cookieConsent = {
       banner.remove();
       console.log("❌ Cookies declined");
     };
+  },
+
+  // Initialize page tracking after user ID is available
+  initializePageTracking: function() {
+    if (!this.userId) {
+      console.warn("⚠️ Cannot initialize page tracking: No user ID available");
+      return;
+    }
+
+    console.log("🚀 Initializing page tracking for user:", this.userId);
+
+    // Get site ID from script tag
+    const scriptTag = document.currentScript || document.querySelector('script[site-id]');
+    const siteId = scriptTag?.getAttribute("site-id");
+
+    if (!siteId) {
+      console.error("❌ Analytics Error: Invalid or missing site-id attribute");
+      return;
+    }
+
+    // Generate or get session ID
+    let sessionId = sessionStorage.getItem("sessionId");
+    if (!sessionId) {
+      sessionId = 'session_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+      sessionStorage.setItem("sessionId", sessionId);
+    }
+
+    // Track current page view
+    this.trackPageView(siteId, sessionId);
+
+    // Listen for navigation changes (hash changes like #features, #solutions, etc.)
+    window.addEventListener('hashchange', () => {
+      console.log(`🔗 Hash changed to: ${window.location.hash}`);
+      this.trackPageView(siteId, sessionId);
+      this.sendPageViewData(siteId, sessionId);
+    });
+
+    // Listen for popstate (back/forward navigation)
+    window.addEventListener('popstate', () => {
+      this.trackPageView(siteId, sessionId);
+      this.sendPageViewData(siteId, sessionId);
+    });
+
+    // Override pushState and replaceState for SPA navigation
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+    
+    history.pushState = (...args) => {
+      this.sendPageViewData(siteId, sessionId); // Send data before navigation
+      originalPushState.apply(history, args);
+      setTimeout(() => this.trackPageView(siteId, sessionId), 0);
+    };
+    
+    history.replaceState = (...args) => {
+      this.sendPageViewData(siteId, sessionId); // Send data before navigation
+      originalReplaceState.apply(history, args);
+      setTimeout(() => this.trackPageView(siteId, sessionId), 0);
+    };
+
+    // Send data periodically and on page unload
+    window.addEventListener('beforeunload', () => {
+      this.sendPageViewData(siteId, sessionId);
+    });
+
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        this.sendPageViewData(siteId, sessionId);
+      }
+    });
+
+    // Send data every 30 seconds
+    setInterval(() => {
+      this.sendPageViewData(siteId, sessionId);
+    }, 30000);
+  },
+
+  // Get current page URL including hash
+  getCurrentPageUrl: function() {
+    const pathname = window.location.pathname || '/';
+    const hash = window.location.hash;
+    return hash ? `${pathname}${hash}` : pathname;
+  },
+
+  // Track page view
+  trackPageView: function(siteId, sessionId) {
+    const currentPage = this.getCurrentPageUrl();
+    
+    // Get existing page views from localStorage (persistent across sessions)
+    const storageKey = `pageViews_${this.userId}`;
+    let pageViews = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    
+    // Increment current page view count
+    pageViews[currentPage] = (pageViews[currentPage] || 0) + 1;
+    
+    // Save updated page views to localStorage
+    localStorage.setItem(storageKey, JSON.stringify(pageViews));
+    
+    console.log(`📊 Page view tracked: ${currentPage} (${pageViews[currentPage]} times)`);
+    console.log("📈 All page views for user:", pageViews);
+
+    // Store current session data
+    this.pageViews = pageViews;
+  },
+
+  // Send page view data to backend
+  sendPageViewData: function(siteId, sessionId) {
+    if (!this.userId || Object.keys(this.pageViews).length === 0) {
+      return;
+    }
+
+    const pageViewData = {
+      siteId: siteId,
+      sessionId: sessionId,
+      uniqueUserId: this.userId, // Include the unique user ID
+      pageViews: this.pageViews,
+      timestamp: Date.now()
+    };
+    
+    console.log("🚀 Sending page view data to backend:", pageViewData);
+    
+    fetch("http://localhost:5000/api/pageviews", {
+      method: "POST", 
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pageViewData),
+      keepalive: true,
+    }).catch((err) => {
+      console.warn("Page view tracking failed:", err);
+    });
   }
 };
 
