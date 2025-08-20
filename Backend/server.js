@@ -131,6 +131,17 @@ app.get('/fetch-data', async (req, res) => {
   res.status(200).json(data);
 });
 
+// app.get('/fetch-data', async (req, res) => {
+//   const { data, error } = await supabase
+//     .query('SELECT * FROM events');
+//   console.log("Fetching data from events table:", data);
+
+//   if (error) {
+//     return res.status(500).json({ error: error.message });
+//   }
+//   res.status(200).json(data);
+// });
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

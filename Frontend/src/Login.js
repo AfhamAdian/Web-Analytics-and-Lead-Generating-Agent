@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = e => {
@@ -34,7 +35,23 @@ function Login() {
       <h2>Login</h2>
       <form onSubmit={handleSubmit}>
         <input name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required />
-        <input name="password" type="password" placeholder="Password" value={form.password} onChange={handleChange} required />
+        <div className="password-input-container">
+          <input 
+            name="password" 
+            type={showPassword ? "text" : "password"} 
+            placeholder="Password" 
+            value={form.password} 
+            onChange={handleChange} 
+            required 
+          />
+          <button 
+            type="button" 
+            className="password-toggle"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? "👁️" : "👁️‍🗨️"}
+          </button>
+        </div>
         <button type="submit">Login</button>
       </form>
       {error && <p className="error">{error}</p>}

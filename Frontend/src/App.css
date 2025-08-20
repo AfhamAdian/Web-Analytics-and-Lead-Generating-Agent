@@ -19,7 +19,27 @@
   border: 1px solid #ccc;
   border-radius: 4px;
 }
-.auth-container button {
+.password-input-container {
+  position: relative;
+  margin-bottom: 16px;
+}
+.password-input-container input {
+  width: 100%;
+  padding-right: 40px;
+  margin-bottom: 0;
+}
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 5px;
+}
+.auth-container button[type="submit"] {
   padding: 10px;
   background: #007bff;
   color: #fff;
