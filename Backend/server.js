@@ -7,14 +7,14 @@ const authenticateToken = require('./middlewares/auth'); // Import the authentic
 const morgan = require('morgan');
 
 const app = express();
-const port = 5000; // Changed to port 5000 to match frontend expectations
+const port = 5000;
 
 app.use(morgan('dev'));
 const corsOptions = {
-  origin: '*', // Allow all origins
+  origin: '*', 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false // Set to false when using origin: '*'
+  credentials: false
 };
 
 app.use(cors(corsOptions));
@@ -92,7 +92,7 @@ app.post('/api/login', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.owner_id, email: user.email },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -192,11 +192,51 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
       return res.status(500).json({ message: 'Failed to fetch sites', error: sitesError.message });
     }
 
+    // Get basic analytics for dashboard
+    const totalSites = sites ? sites.length : 0;
+    
+    // Get total unique visitors across all sites
+    const { data: allVisitors } = await supabase
+      .from('sessions')
+      .select('uid, site_id')
+      .in('site_id', sites.map(s => s.site_id));
+    
+    const uniqueVisitors = allVisitors ? [...new Set(allVisitors.map(v => v.uid))].length : 0;
+
+    // Get total leads across all sites
+    const { data: allLeads } = await supabase
+      .from('visitors')
+      .select(`uid, sessions!inner(site_id)`)
+      .in('sessions.site_id', sites.map(s => s.site_id))
+      .not('lead_status', 'eq', 'unknown')
+      .not('lead_name', 'is', null);
+
+    const totalLeads = allLeads ? allLeads.length : 0;
+
+    // Mock revenue calculation (you can implement real revenue tracking)
+    const revenue = totalLeads * 150; // $150 per lead average
+
+    const stats = [
+      { title: 'Total Sites', value: totalSites.toString() },
+      { title: 'Active Users', value: uniqueVisitors.toString() },
+      { title: 'New Leads', value: totalLeads.toString() },
+      { title: 'Revenue', value: `$${revenue.toLocaleString()}` }
+    ];
+
+    const chartData = [
+      { label: 'Sites', percentage: Math.min(totalSites * 20, 100), value: totalSites.toString(), color: 'bg-orange-500' },
+      { label: 'Users', percentage: Math.min(uniqueVisitors * 2, 100), value: uniqueVisitors.toString(), color: 'bg-blue-500' },
+      { label: 'Leads', percentage: Math.min(totalLeads * 5, 100), value: totalLeads.toString(), color: 'bg-green-500' },
+      { label: 'Revenue', percentage: Math.min(revenue / 100, 100), value: `$${(revenue/1000).toFixed(1)}K`, color: 'bg-purple-500' }
+    ];
+
     console.log
     res.status(200).json({
       message: 'Dashboard data fetched successfully',
       userName,
-      sites
+      sites,
+      stats,
+      chartData
     });
 
 
@@ -273,6 +313,155 @@ async function getOwnerID(email) {
 
   return data.owner_id;
 }
+
+// Get site-specific analytics data
+app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
+  try {
+    const { siteId } = req.params;
+    const userEmail = req.user.email;
+
+    // Get owner ID
+    const ownerId = await getOwnerID(userEmail);
+    if (!ownerId) {
+      return res.status(404).json({ message: 'Owner not found' });
+    }
+
+    // Verify site belongs to this owner
+    const { data: siteData, error: siteError } = await supabase
+      .from('sites')
+      .select('*')
+      .eq('site_id', siteId)
+      .eq('owner_id', ownerId)
+      .single();
+
+    if (siteError || !siteData) {
+      return res.status(404).json({ message: 'Site not found or not authorized' });
+    }
+
+    // Get visitors count for this site
+    const { data: visitorsData, error: visitorsError } = await supabase
+      .from('sessions')
+      .select('uid')
+      .eq('site_id', siteId);
+
+    const uniqueVisitors = visitorsData ? [...new Set(visitorsData.map(v => v.uid))].length : 0;
+
+    // Get total page views for this site
+    const { data: sessionsData, error: sessionsError } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('site_id', siteId);
+
+    const totalSessions = sessionsData ? sessionsData.length : 0;
+
+    // Get events count for this site
+    const { data: eventsData, error: eventsError } = await supabase
+      .from('events')
+      .select('*')
+      .eq('site_id', siteId);
+
+    const totalEvents = eventsData ? eventsData.length : 0;
+
+    // Get recent visitors with location data
+    const { data: recentVisitors, error: recentVisitorsError } = await supabase
+      .from('visitors')
+      .select(`
+        uid,
+        first_seen,
+        last_seen,
+        country,
+        region,
+        page_views,
+        total_sessions,
+        lead_status,
+        lead_name,
+        lead_email,
+        sessions!inner(site_id)
+      `)
+      .eq('sessions.site_id', siteId)
+      .order('last_seen', { ascending: false })
+      .limit(10);
+
+    // Get browser analytics
+    const { data: browserData, error: browserError } = await supabase
+      .from('sessions')
+      .select('browser')
+      .eq('site_id', siteId)
+      .not('browser', 'is', null);
+
+    const browserStats = browserData?.reduce((acc, session) => {
+      const browser = session.browser || 'Unknown';
+      acc[browser] = (acc[browser] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
+    // Get device analytics
+    const { data: deviceData, error: deviceError } = await supabase
+      .from('sessions')
+      .select('device')
+      .eq('site_id', siteId)
+      .not('device', 'is', null);
+
+    const deviceStats = deviceData?.reduce((acc, session) => {
+      const device = session.device || 'Unknown';
+      acc[device] = (acc[device] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
+    // Get country analytics
+    const { data: countryData, error: countryError } = await supabase
+      .from('visitors')
+      .select(`
+        country,
+        sessions!inner(site_id)
+      `)
+      .eq('sessions.site_id', siteId)
+      .not('country', 'is', null);
+
+    const countryStats = countryData?.reduce((acc, visitor) => {
+      const country = visitor.country || 'Unknown';
+      acc[country] = (acc[country] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
+    // Get leads for this site
+    const { data: leadsData, error: leadsError } = await supabase
+      .from('visitors')
+      .select(`
+        uid,
+        lead_name,
+        lead_email,
+        lead_phone,
+        lead_status,
+        first_seen,
+        sessions!inner(site_id)
+      `)
+      .eq('sessions.site_id', siteId)
+      .not('lead_status', 'eq', 'unknown')
+      .not('lead_name', 'is', null)
+      .order('first_seen', { ascending: false });
+
+    res.status(200).json({
+      message: 'Site analytics fetched successfully',
+      site: siteData,
+      analytics: {
+        uniqueVisitors,
+        totalSessions,
+        totalEvents,
+        leads: leadsData?.length || 0
+      },
+      recentVisitors: recentVisitors || [],
+      browserStats,
+      deviceStats,
+      countryStats,
+      leads: leadsData || []
+    });
+
+  } catch (error) {
+    console.error('Site analytics fetch error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 
 
 app.listen(port, () => {
