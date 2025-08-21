@@ -2,7 +2,7 @@ import React from 'react';
 import { LogOut, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const DashboardHeader = ({ user, onLogout }) => {
+const DashboardHeader = ({ user }) => {
   const navigate = useNavigate();
 
   const handleAddSite = () => {
@@ -11,6 +11,13 @@ const DashboardHeader = ({ user, onLogout }) => {
 
   const handleProfileClick = () => {
     navigate('/profile');
+  };
+
+  const handleLogout = () => {
+    // Remove the token from localStorage
+    localStorage.removeItem('token');
+    // Redirect to login page
+    navigate('/login');
   };
 
   return (
@@ -40,7 +47,7 @@ const DashboardHeader = ({ user, onLogout }) => {
           {user}
         </span>
         <button
-          onClick={onLogout}
+          onClick={handleLogout}
           className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
           title="Logout"
         >

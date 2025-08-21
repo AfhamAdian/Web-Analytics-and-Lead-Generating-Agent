@@ -28,10 +28,6 @@ export default function WebAppDashboard() {
     { label: 'Revenue', percentage: 80, value: '$12.4K', color: 'bg-purple-500' }
   ];
 
-  const handleLogout = () => {
-    alert('Logout clicked - would redirect to login page');
-  };
-
   return (
     <div className="min-h-screen bg-gray-100 flex">
       <Sidebar sites={sites} />
@@ -39,7 +35,6 @@ export default function WebAppDashboard() {
       <div className="flex-1 flex flex-col">
         <DashboardHeader 
           user={user}
-          onLogout={handleLogout}
         />
 
         <main className="flex-1 p-6">
