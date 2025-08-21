@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../Services/api'
 
 const AddSite = () => {
   const navigate = useNavigate();
@@ -24,8 +25,17 @@ const AddSite = () => {
     e.preventDefault();
     // Here you would typically send the data to your backend
     console.log('Site data:', formData);
-    alert(`Site "${formData.siteName}" added successfully!`);
-    navigate('/dashboard');
+
+    api.post('/addSite', formData)
+      .then(response => {
+        console.log('API response:', response.data);
+        alert(`Site "${formData.siteName}" added successfully!`);
+        navigate('/dashboard');
+      })
+      .catch(error => {
+        console.error('Error adding site:', error);
+        alert('Failed to add site. Please try again.');
+      });
   };
 
   return (
