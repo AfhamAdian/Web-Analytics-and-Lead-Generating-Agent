@@ -272,9 +272,19 @@ app.post('/api/addSite', authenticateToken, async (req, res) => {
     }
 
     console.log('Site added successfully:', data[0]);
+    
+    // Generate tracking script for the new site
+    const trackingScript = `<Script
+  src="http://localhost:8080/track.js"
+  site-id="${data[0].site_id}"
+  strategy="afterInteractive"
+  async
+/>`;
+
     res.status(200).json({
       message: 'Site added successfully',
-      site: data[0]
+      site: data[0],
+      trackingScript: trackingScript
     });
 
   } catch (error) {
