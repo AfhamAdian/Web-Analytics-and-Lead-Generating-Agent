@@ -473,6 +473,142 @@ app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
   }
 });
 
+// Get visitors with lead scores for a specific site
+app.get('/api/sites/:siteId/visitors', authenticateToken, async (req, res) => {
+  try {
+    const { siteId } = req.params;
+    const userEmail = req.user.email;
+
+    // Get owner ID
+    const ownerId = await getOwnerID(userEmail);
+    if (!ownerId) {
+      return res.status(404).json({ message: 'Owner not found' });
+    }
+
+    // Verify site belongs to this owner
+    const { data: siteData, error: siteError } = await supabase
+      .from('sites')
+      .select('*')
+      .eq('site_id', siteId)
+      .eq('owner_id', ownerId)
+      .single();
+
+    if (siteError || !siteData) {
+      return res.status(404).json({ message: 'Site not found or not authorized' });
+    }
+
+    // Get all visitors for this site with session and event data
+    const { data: visitorsData, error: visitorsError } = await supabase
+      .from('visitors')
+      .select(`
+        uid,
+        first_seen,
+        last_seen,
+        region,
+        country,
+        page_views,
+        total_sessions,
+        lead_status,
+        lead_name,
+        lead_email,
+        lead_phone,
+        sessions!inner(
+          session_id,
+          site_id,
+          started_at,
+          ended_at,
+          duration,
+          browser,
+          device,
+          os
+        )
+      `)
+      .eq('sessions.site_id', siteId)
+      .order('last_seen', { ascending: false });
+
+    if (visitorsError) {
+      console.error('Visitors fetch error:', visitorsError);
+      return res.status(500).json({ message: 'Failed to fetch visitors data' });
+    }
+
+    // Get events data for each visitor to calculate engagement score
+    const visitorUids = visitorsData?.map(v => v.uid) || [];
+    const { data: eventsData } = await supabase
+      .from('events')
+      .select('uid, event_type, event_name, event_timestamp')
+      .in('uid', visitorUids)
+      .eq('site_id', siteId);
+
+    // Calculate lead score for each visitor
+    const visitorsWithScores = visitorsData?.map(visitor => {
+      const visitorEvents = eventsData?.filter(event => event.uid === visitor.uid) || [];
+      
+      let leadScore = 0;
+      
+      // Base score factors
+      leadScore += visitor.page_views * 5; // 5 points per page view
+      leadScore += visitor.total_sessions * 10; // 10 points per session
+      
+      // Time spent (based on session duration)
+      const totalDuration = visitor.sessions.reduce((sum, session) => {
+        return sum + (session.duration || 0);
+      }, 0);
+      leadScore += Math.min(totalDuration / 60, 30); // Max 30 points for time (1 point per minute, capped at 30)
+      
+      // Event engagement
+      const clickEvents = visitorEvents.filter(e => e.event_type === 'click').length;
+      const formEvents = visitorEvents.filter(e => e.event_type === 'form_submit').length;
+      const scrollEvents = visitorEvents.filter(e => e.event_type === 'scroll').length;
+      
+      leadScore += clickEvents * 2; // 2 points per click
+      leadScore += formEvents * 20; // 20 points per form submission
+      leadScore += scrollEvents * 1; // 1 point per scroll event
+      
+      // Return visits bonus
+      if (visitor.total_sessions > 1) {
+        leadScore += (visitor.total_sessions - 1) * 15; // 15 points for each return visit
+      }
+      
+      // Lead status bonus
+      if (visitor.lead_status !== 'unknown' && visitor.lead_name) {
+        leadScore += 50; // 50 points for becoming a lead
+      }
+      
+      // Recent activity bonus
+      const daysSinceLastSeen = (new Date() - new Date(visitor.last_seen)) / (1000 * 60 * 60 * 24);
+      if (daysSinceLastSeen < 1) {
+        leadScore += 20; // 20 points for activity in last 24 hours
+      } else if (daysSinceLastSeen < 7) {
+        leadScore += 10; // 10 points for activity in last week
+      }
+      
+      return {
+        ...visitor,
+        leadScore: Math.round(leadScore),
+        totalDuration: Math.round(totalDuration / 60), // in minutes
+        eventCounts: {
+          clicks: clickEvents,
+          forms: formEvents,
+          scrolls: scrollEvents
+        }
+      };
+    }) || [];
+
+    // Sort by lead score (highest first)
+    visitorsWithScores.sort((a, b) => b.leadScore - a.leadScore);
+
+    res.status(200).json({
+      message: 'Visitors data fetched successfully',
+      site: siteData,
+      visitors: visitorsWithScores
+    });
+
+  } catch (error) {
+    console.error('Site visitors fetch error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
