@@ -355,8 +355,18 @@ const cookieConsent = {
 
   // Setup click event tracking for buttons, images, and other elements
   setupClickEventTracking: function(siteId, sessionId) {
+    let specialButtonClicks = {}; // Track clicks for each specific button by name
+    
     document.addEventListener('click', (event) => {
       const element = event.target;
+      
+      // Check if clicked element is a special button (Subscribe, Get a demo, Be an Early Bird)
+      const buttonText = element.textContent || element.value || '';
+      const isSpecialButton = buttonText.toLowerCase().includes('subscribe') || 
+                             buttonText.toLowerCase().includes('get a demo') || 
+                             buttonText.toLowerCase().includes('be an early bird') ||
+                             buttonText.toLowerCase().includes('demo') ||
+                             buttonText.toLowerCase().includes('early bird');
       
       // Track button clicks
       if (element.tagName === 'BUTTON' || element.type === 'button' || element.type === 'submit') {
@@ -365,12 +375,45 @@ const cookieConsent = {
           sessionId,
           uniqueUserId: this.userId,
           elementType: 'button',
-          elementText: element.textContent || element.value || 'Unknown Button',
+          elementText: buttonText || 'Unknown Button',
           elementId: element.id || null,
           elementClass: element.className || null,
           url: window.location.href,
           timestamp: Date.now()
         });
+
+        // Handle special button clicks - track each button separately
+        if (isSpecialButton) {
+          const normalizedButtonText = buttonText.toLowerCase().trim();
+          
+          // Only track these specific buttons
+          const targetButtons = ['subscribe', 'get a demo', 'be an early bird'];
+          const isTargetButton = targetButtons.some(target => 
+            normalizedButtonText.includes(target)
+          );
+          
+          if (isTargetButton) {
+            // Check if button is inside a form (indicating it's the second click from within form)
+            const isInsideForm = element.closest('form') !== null;
+            
+            if (isInsideForm) {
+              // Button is inside a form - this is the second click, capture form data
+              console.log(`📋 Form submission detected for: "${buttonText}" - capturing form data`);
+              this.captureAndSendFormData(siteId, sessionId, buttonText);
+            } else {
+              // Button is not in form - this is first click, form should show up on frontend
+              console.log(`🎯 First click on special button: "${buttonText}" - form should appear on frontend`);
+              
+              // Initialize counter for this specific button if not exists (for logging purposes)
+              if (!specialButtonClicks[normalizedButtonText]) {
+                specialButtonClicks[normalizedButtonText] = 0;
+              }
+              specialButtonClicks[normalizedButtonText]++;
+              
+              console.log(`📊 Special button "${buttonText}" clicked ${specialButtonClicks[normalizedButtonText]} times`);
+            }
+          }
+        }
       }
       
       // Track image clicks
@@ -616,6 +659,121 @@ const cookieConsent = {
         }
       );
     });
+  },
+
+  // Capture and send form data immediately from the form containing the button
+  captureAndSendFormData: function(siteId, sessionId, buttonText) {
+    console.log(`📋 Capturing form data for button: "${buttonText}"`);
+    
+    // Find the form that contains the clicked button
+    const buttons = document.querySelectorAll('button, input[type="button"], input[type="submit"]');
+    let targetForm = null;
+    
+    // Find the button that was clicked and get its form
+    for (const btn of buttons) {
+      const btnText = btn.textContent || btn.value || '';
+      if (btnText.toLowerCase().includes(buttonText.toLowerCase().split(' ')[0])) {
+        targetForm = btn.closest('form');
+        if (targetForm) {
+          console.log(`🎯 Found target form for button: "${buttonText}"`);
+          break;
+        }
+      }
+    }
+    
+    if (!targetForm) {
+      console.warn('⚠️ No form found containing the clicked button');
+      // Fallback to searching entire document
+      console.log('🔍 Searching entire document for form fields...');
+    }
+    
+    // Look for form fields by common selectors within the target form (or document if no form found)
+    const searchContext = targetForm || document;
+    const formData = {
+      siteId: siteId,
+      sessionId: sessionId,
+      uniqueUserId: this.userId,
+      buttonClicked: buttonText,
+      fullName: '',
+      businessEmail: '',
+      company: '',
+      mobile: '',
+      timestamp: Date.now()
+    };
+    
+    // Try to find form fields by various methods within the form
+    const fieldSelectors = {
+      fullName: [
+        'input[name*="name"]',
+        'input[id*="name"]', 
+        'input[placeholder*="Full Name"]',
+        'input[placeholder*="Name"]',
+        'input[placeholder*="name"]'
+      ],
+      businessEmail: [
+        'input[name*="email"]',
+        'input[id*="email"]',
+        'input[type="email"]',
+        'input[placeholder*="Email"]',
+        'input[placeholder*="email"]'
+      ],
+      company: [
+        'input[name*="company"]',
+        'input[id*="company"]',
+        'input[placeholder*="Company"]',
+        'input[placeholder*="company"]'
+      ],
+      mobile: [
+        'input[name*="mobile"]',
+        'input[name*="phone"]',
+        'input[id*="mobile"]',
+        'input[id*="phone"]',
+        'input[type="tel"]',
+        'input[placeholder*="Mobile"]',
+        'input[placeholder*="Phone"]',
+        'input[placeholder*="mobile"]',
+        'input[placeholder*="phone"]'
+      ]
+    };
+    
+    // Extract data from form fields within the target form
+    for (const [fieldName, selectors] of Object.entries(fieldSelectors)) {
+      for (const selector of selectors) {
+        const element = searchContext.querySelector(selector);
+        if (element && element.value && element.value.trim()) {
+          formData[fieldName] = element.value.trim();
+          console.log(`✅ Found ${fieldName}: ${element.value.trim()}`);
+          break; // Stop looking once we find a value
+        }
+      }
+    }
+    
+    // Log what data we captured
+    console.log("📤 Captured form data:", formData);
+    
+    // Only send if we captured at least one field
+    const hasData = formData.fullName || formData.businessEmail || formData.company || formData.mobile;
+    
+    if (hasData) {
+      // Send to backend immediately
+      fetch("http://localhost:5000/api/user-detail-informations", {
+        //this portion is for Farbricx website specific
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+        keepalive: true,
+      }).then(response => {
+        if (response.ok) {
+          console.log("✅ Form data submitted successfully");
+        } else {
+          console.error("❌ Failed to submit form data");
+        }
+      }).catch((err) => {
+        console.warn("Form data submission failed:", err);
+      });
+    } else {
+      console.warn("⚠️ No form data captured - form may be empty or fields not found");
+    }
   },
 
   // Get current page URL including hash

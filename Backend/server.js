@@ -581,8 +581,31 @@ app.post('/api/click-events', async (req, res) => {
 
 
 
+//this portion is for Farbricx website specific
+app.post('/api/user-detail-informations',async(req,res)=>{
+  try{
+    console.log("👤 Received user detail information:", req.body);
 
 
+    //fetch data according this format
+    /*Received user detail information: {
+      siteId: '429d4183-eaba-4698-8475-3e8d5e7da1a3',
+      sessionId: 'session_fc1bf97a-b4ce-4b8e-b49c-a91dc5978c3f',
+      uniqueUserId: 'user_7a6286fc-95c6-4208-b09f-b8ec69b1265a',
+      buttonClicked: 'Be an Early Bird',
+      fullName: 'alvee',
+      businessEmail: 'alveeadian@gmail.com',
+      company: 'sociofy',
+      mobile: '(454) 35',
+      timestamp: 1755977988332
+    }*/
+
+  }
+  catch{
+    console.error('Error fetching user detail information:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+})
 
 
 
