@@ -3,8 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const crypto = require('crypto');
-const supabase = require('./supabaseClient'); // Import the Supabase client
-const authenticateToken = require('./middlewares/auth'); // Import the authentication middleware
+const supabase = require('./supabaseClient'); 
+const authenticateToken = require('./middlewares/auth');
 const morgan = require('morgan');
 
 const app = express();
@@ -198,23 +198,20 @@ async function getOrCreateSession(sessionId, uniqueUserId, siteId, timestamp, me
 
 
 app.post('/api/user-system-info', async (req, res) => {
-    // const systemData = {
-    //     siteId: siteId,
-    //     sessionId: sessionId,
-    //     uniqueUserId: this.userId,
-    //     browser: browser,
-    //     operatingSystem: os,
-    //     userAgent: userAgent,
-    //     screenInfo: screenInfo,
-    //     timezone: timezone,
-    //     language: language,
-    //     location: location,
-    //     timestamp: Date.now()
-    //   };
-    //complete for these systemData\
+  try {
+    const { 
+      siteId, 
+      sessionId, 
+      uniqueUserId, 
+      browser, 
+      operatingSystem, 
+      userAgent, 
+      screenInfo, 
+      timezone, 
+      language, 
+      location 
+    } = req.body;
 
-    try{
-       const { siteId, sessionId, uniqueUserId, browser, operatingSystem, userAgent, screenInfo, timezone, language, location } = req.body;
     console.log('🖥️ User system information:', {
       siteId,
       sessionId,
@@ -229,30 +226,213 @@ app.post('/api/user-system-info', async (req, res) => {
     });
 
     if (!siteId || !sessionId || !uniqueUserId) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      return res.status(400).json({ message: 'Missing required fields: siteId, sessionId, uniqueUserId' });
     }
 
-    const systemData = {
-      siteId: siteId,
-      sessionId: sessionId,
-      uniqueUserId: uniqueUserId,
-      browser: browser,
-      operatingSystem: operatingSystem,
-      userAgent: userAgent,
-      screenInfo: screenInfo,
-      timezone: timezone,
-      language: language,
-      location: location,
-      timestamp: Date.now()
+    // Sanitize IDs
+    const sanitizedUserId = sanitizeUserId(uniqueUserId);
+    const sanitizedSessionId = sanitizeSessionId(sessionId);
+
+    // First check if session exists
+    const { data: existingSession, error: sessionCheckError } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('session_id', sanitizedSessionId)
+      .single();
+
+    if (sessionCheckError && sessionCheckError.code !== 'PGRST116') {
+      console.error('❌ Error checking session:', sessionCheckError);
+      return res.status(500).json({ 
+        message: 'Failed to check session',
+        error: sessionCheckError.message 
+      });
+    }
+
+    let updatedSession = null;
+
+    if (existingSession) {
+      // Update existing session with system information
+      const { data: sessionUpdateResult, error: sessionUpdateError } = await supabase
+        .from('sessions')
+        .update({
+          browser: browser || null,
+          os: operatingSystem || null,
+          device: screenInfo?.device || 'desktop',
+          updated_at: new Date().toISOString()
+        })
+        .eq('session_id', sanitizedSessionId)
+        .select()
+        .single();
+
+      if (sessionUpdateError) {
+        console.error('❌ Error updating session with system info:', sessionUpdateError);
+        return res.status(500).json({ 
+          message: 'Failed to update session with system information',
+          error: sessionUpdateError.message 
+        });
+      }
+
+      updatedSession = sessionUpdateResult;
+    } else {
+      // Session doesn't exist, create it with system info
+      console.log('⚠️ Session not found, creating new session with system info');
+      
+      const { data: newSession, error: createSessionError } = await supabase
+        .from('sessions')
+        .insert([{
+          session_id: sanitizedSessionId,
+          uid: sanitizedUserId,
+          site_id: siteId,
+          started_at: new Date().toISOString(),
+          browser: browser || null,
+          os: operatingSystem || null,
+          device: screenInfo?.device || 'desktop',
+          cookie_consent_accepted: false
+        }])
+        .select()
+        .single();
+
+      if (createSessionError) {
+        console.error('❌ Error creating session with system info:', createSessionError);
+        return res.status(500).json({ 
+          message: 'Failed to create session with system information',
+          error: createSessionError.message 
+        });
+      }
+
+      updatedSession = newSession;
+    }
+
+    // Update visitor with location and system information if available
+    const visitorUpdates = {
+      last_seen: new Date().toISOString()
     };
 
+    // Parse timezone to extract country/continent and region/city
+    if (timezone) {
+      const timezoneParts = timezone.split('/');
+      if (timezoneParts.length >= 2) {
+        const continent = timezoneParts[0]; // e.g., "Asia"
+        const city = timezoneParts[timezoneParts.length - 1]; // e.g., "Dhaka"
+        
+        // Map continents to more user-friendly country/region names
+        const continentMapping = {
+          'Asia': 'Asia',
+          'Europe': 'Europe', 
+          'America': 'America',
+          'Africa': 'Africa',
+          'Australia': 'Australia',
+          'Pacific': 'Pacific',
+          'Atlantic': 'Atlantic',
+          'Indian': 'Indian Ocean',
+          'Antarctica': 'Antarctica'
+        };
+
+        visitorUpdates.country = continentMapping[continent] || continent;
+        visitorUpdates.region = city.replace(/_/g, ' '); // Replace underscores with spaces
+        
+        console.log(`📍 Parsed location from timezone ${timezone}: Country=${visitorUpdates.country}, Region=${visitorUpdates.region}`);
+      }
+    }
+
+    // Override with explicit location data if provided (GPS coordinates might give more accurate data)
+    if (location) {
+      if (location.country) visitorUpdates.country = location.country;
+      if (location.region) visitorUpdates.region = location.region;
+    }
+
+    let updatedVisitor = null;
+
+    // Check if visitor exists first
+    const { data: existingVisitor, error: visitorCheckError } = await supabase
+      .from('visitors')
+      .select('*')
+      .eq('uid', sanitizedUserId)
+      .single();
+
+    if (visitorCheckError && visitorCheckError.code !== 'PGRST116') {
+      console.error('❌ Error checking visitor:', visitorCheckError);
+    }
+
+    if (existingVisitor) {
+      // Update existing visitor
+      const { data: visitorUpdateResult, error: visitorUpdateError } = await supabase
+        .from('visitors')
+        .update(visitorUpdates)
+        .eq('uid', sanitizedUserId)
+        .select()
+        .single();
+
+      if (visitorUpdateError) {
+        console.error('❌ Error updating visitor with system info:', visitorUpdateError);
+        // Don't fail the request if visitor update fails
+      } else {
+        updatedVisitor = visitorUpdateResult;
+      }
+    } else {
+      // Create visitor if it doesn't exist
+      console.log('⚠️ Visitor not found, creating new visitor');
+      
+      const { data: newVisitor, error: createVisitorError } = await supabase
+        .from('visitors')
+        .insert([{
+          uid: sanitizedUserId,
+          first_seen: new Date().toISOString(),
+          last_seen: new Date().toISOString(),
+          page_views: 0,
+          total_sessions: 1,
+          region: visitorUpdates.region || null,
+          country: visitorUpdates.country || null
+        }])
+        .select()
+        .single();
+
+      if (createVisitorError) {
+        console.error('❌ Error creating visitor:', createVisitorError);
+        // Don't fail the request if visitor creation fails
+      } else {
+        updatedVisitor = newVisitor;
+      }
+    }
+
+    // Create a system info event for tracking purposes
+    const { data: systemInfoEvent, error: eventError } = await supabase
+      .from('events')
+      .insert([{
+        uid: sanitizedUserId,
+        session_id: sanitizedSessionId,
+        site_id: siteId,
+        event_type: 'system_info',
+        event_name: 'user_system_information_collected',
+        properties: {
+          browser: browser,
+          operating_system: operatingSystem,
+          user_agent: userAgent,
+          screen_info: screenInfo,
+          timezone: timezone,
+          language: language,
+          location: location
+        },
+        event_timestamp: new Date().toISOString()
+      }])
+      .select();
+
+    if (eventError) {
+      console.error('Error creating system info event:', eventError);
+      // Don't fail the request if event creation fails
+    }
+
+    console.log('✅ User system information saved successfully');
+
     res.status(200).json({
-      message: 'User system information fetched successfully',
-      data: systemData
+      message: 'User system information saved successfully',
+      session: updatedSession,
+      visitor: updatedVisitor,
+      eventId: systemInfoEvent?.[0]?.event_id
     });
 
   } catch (error) {
-    console.error('❌ User system info error:', error);
+    console.error('User system info error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -1187,6 +1367,19 @@ app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
       return acc;
     }, {}) || {};
 
+    // Get OS analytics
+    const { data: osData, error: osError } = await supabase
+      .from('sessions')
+      .select('os')
+      .eq('site_id', siteId)
+      .not('os', 'is', null);
+
+    const osStats = osData?.reduce((acc, session) => {
+      const os = session.os || 'Unknown';
+      acc[os] = (acc[os] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
     // Get country analytics
     const { data: countryData, error: countryError } = await supabase
       .from('visitors')
@@ -1235,6 +1428,7 @@ app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
       recentVisitors: recentVisitors || [],
       browserStats,
       deviceStats,
+      osStats,
       countryStats,
       leads: leadsData || []
     });
