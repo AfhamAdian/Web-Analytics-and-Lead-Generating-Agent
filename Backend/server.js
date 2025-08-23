@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const crypto = require('crypto');
 const supabase = require('./supabaseClient'); // Import the Supabase client
 const authenticateToken = require('./middlewares/auth'); // Import the authentication middleware
 const morgan = require('morgan');
@@ -21,9 +22,709 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 
-
-
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Helper function to extract or generate proper UUID
+function sanitizeUserId(userId) {
+  // If it starts with "user_", extract the UUID part
+  if (userId.startsWith('user_')) {
+    return userId.substring(5);
+  }
+  // If it's already a valid UUID format, return as is
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+    return userId;
+  }
+  // Otherwise, generate a new UUID (this shouldn't happen in normal flow)
+  console.warn(`Invalid userId format: ${userId}, generating new UUID`);
+  return crypto.randomUUID();
+}
+
+// Helper function to extract or generate proper UUID for session IDs
+function sanitizeSessionId(sessionId) {
+  // If it starts with "session_", extract the UUID part
+  if (sessionId.startsWith('session_')) {
+    return sessionId.substring(8);
+  }
+  // If it's already a valid UUID format, return as is
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+    return sessionId;
+  }
+  // Otherwise, generate a new UUID (this shouldn't happen in normal flow)
+  console.warn(`Invalid sessionId format: ${sessionId}, generating new UUID`);
+  return crypto.randomUUID();
+}
+
+// Helper function to get or create visitor
+async function getOrCreateVisitor(uniqueUserId, timestamp, metadata = {}) {
+  try {
+    // Sanitize the user ID to proper UUID format
+    const sanitizedUserId = sanitizeUserId(uniqueUserId);
+    
+    // Check if visitor exists
+    let { data: visitor, error: visitorError } = await supabase
+      .from('visitors')
+      .select('*')
+      .eq('uid', sanitizedUserId)
+      .single();
+
+    if (visitorError && visitorError.code !== 'PGRST116') {
+      console.error('Error checking visitor:', visitorError);
+      return { visitor: null, error: visitorError };
+    }
+
+    if (!visitor) {
+      // Create new visitor with metadata
+      const { data: newVisitor, error: createVisitorError } = await supabase
+        .from('visitors')
+        .insert([{
+          uid: sanitizedUserId,
+          first_seen: new Date(timestamp).toISOString(),
+          last_seen: new Date(timestamp).toISOString(),
+          page_views: metadata.pageViews || 1,
+          total_sessions: 1,
+          region: metadata.region || null,
+          country: metadata.country || null
+        }])
+        .select()
+        .single();
+
+      if (createVisitorError) {
+        console.error('Error creating visitor:', createVisitorError);
+        return { visitor: null, error: createVisitorError };
+      }
+      return { visitor: newVisitor, error: null, isNew: true };
+    } else {
+      // Update existing visitor
+      const updates = {
+        last_seen: new Date(timestamp).toISOString(),
+        region: metadata.region || visitor.region,
+        country: metadata.country || visitor.country
+      };
+      
+      // Only update page_views if provided
+      if (metadata.pageViews) {
+        updates.page_views = metadata.pageViews;
+      }
+
+      const { data: updatedVisitor, error: updateVisitorError } = await supabase
+        .from('visitors')
+        .update(updates)
+        .eq('uid', sanitizedUserId)
+        .select()
+        .single();
+
+      if (updateVisitorError) {
+        console.error('Error updating visitor:', updateVisitorError);
+        return { visitor: null, error: updateVisitorError };
+      }
+      return { visitor: updatedVisitor, error: null, isNew: false };
+    }
+  } catch (error) {
+    console.error('Error in getOrCreateVisitor:', error);
+    return { visitor: null, error };
+  }
+}
+
+// Helper function to get or create session
+async function getOrCreateSession(sessionId, uniqueUserId, siteId, timestamp, metadata = {}) {
+  try {
+    // Sanitize both the session ID and user ID to proper UUID format
+    const sanitizedSessionId = sanitizeSessionId(sessionId);
+    const sanitizedUserId = sanitizeUserId(uniqueUserId);
+    
+    // Check if session exists
+    let { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('session_id', sanitizedSessionId)
+      .single();
+
+    if (sessionError && sessionError.code !== 'PGRST116') {
+      console.error('Error checking session:', sessionError);
+      return { session: null, error: sessionError };
+    }
+
+    if (!session) {
+      // Create new session with metadata
+      const { data: newSession, error: createSessionError } = await supabase
+        .from('sessions')
+        .insert([{
+          session_id: sanitizedSessionId,
+          uid: sanitizedUserId,
+          site_id: siteId,
+          started_at: new Date(timestamp).toISOString(),
+          browser: metadata.browser || null,
+          os: metadata.os || null,
+          device: metadata.device || null,
+          landing_page: metadata.landingPage || null,
+          cookie_consent_accepted: metadata.cookieConsent || false
+        }])
+        .select()
+        .single();
+
+      if (createSessionError) {
+        console.error('Error creating session:', createSessionError);
+        return { session: null, error: createSessionError };
+      }
+      
+      // Update visitor's total_sessions count
+      const { data: currentVisitor, error: fetchError } = await supabase
+        .from('visitors')
+        .select('total_sessions')
+        .eq('uid', sanitizedUserId)
+        .single();
+      
+      if (!fetchError && currentVisitor) {
+        const { error: sessionCountError } = await supabase
+          .from('visitors')
+          .update({ total_sessions: currentVisitor.total_sessions + 1 })
+          .eq('uid', sanitizedUserId);
+
+        if (sessionCountError) {
+          console.error('Error updating visitor session count:', sessionCountError);
+        }
+      }
+
+      return { session: newSession, error: null, isNew: true };
+    }
+
+    return { session, error: null, isNew: false };
+  } catch (error) {
+    console.error('Error in getOrCreateSession:', error);
+    return { session: null, error };
+  }
+}
+
+
+app.post('/api/pageviews', async (req, res) => {
+  try {
+    const { 
+      siteId, 
+      sessionId, 
+      uniqueUserId, 
+      pageViews, 
+      timestamp,
+      // Additional metadata from analytics script
+      browser,
+      os,
+      device,
+      landingPage,
+      currentUrl,
+      region,
+      country,
+      cookieConsent
+    } = req.body;
+
+    console.log('📊 Received page view data:', {
+      siteId,
+      sessionId,
+      uniqueUserId,
+      pageViews,
+      timestamp: new Date(timestamp).toISOString(),
+      browser,
+      os,
+      device
+    });
+
+    if (!siteId || !sessionId || !uniqueUserId || !pageViews || !timestamp) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: siteId, sessionId, uniqueUserId, pageViews, timestamp' 
+      });
+    }
+
+    // Sanitize IDs
+    const sanitizedUserId = sanitizeUserId(uniqueUserId);
+    const sanitizedSessionId = sanitizeSessionId(sessionId);
+
+    // First, get or create visitor with metadata
+    const { visitor, error: visitorError } = await getOrCreateVisitor(uniqueUserId, timestamp, {
+      pageViews: typeof pageViews === 'object' ? Object.values(pageViews).reduce((a, b) => a + b, 0) : pageViews,
+      region,
+      country
+    });
+
+    if (visitorError) {
+      return res.status(500).json({ message: 'Failed to handle visitor data' });
+    }
+
+    // Check if session exists first
+    let { data: existingSession, error: sessionCheckError } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('session_id', sanitizedSessionId)
+      .single();
+
+    if (sessionCheckError && sessionCheckError.code !== 'PGRST116') {
+      console.error('Error checking session:', sessionCheckError);
+      return res.status(500).json({ message: 'Failed to check session' });
+    }
+
+    let session = existingSession;
+
+    // If session doesn't exist, create it
+    if (!existingSession) {
+      const { session: newSession, error: sessionError } = await getOrCreateSession(
+        sessionId, 
+        uniqueUserId, 
+        siteId, 
+        timestamp, 
+        {
+          browser,
+          os,
+          device,
+          landingPage: landingPage || currentUrl,
+          cookieConsent
+        }
+      );
+
+      if (sessionError) {
+        return res.status(500).json({ message: 'Failed to create session data' });
+      }
+
+      session = newSession;
+      console.log('✅ New session created:', session.session_id);
+    } else {
+      console.log('✅ Using existing session:', session.session_id);
+    }
+
+    // Create page view event with the confirmed session
+    const { data: pageViewEvent, error: eventError } = await supabase
+      .from('events')
+      .insert([{
+        uid: sanitizedUserId,
+        session_id: sanitizedSessionId,
+        site_id: siteId,
+        event_type: 'page_view',
+        event_name: 'page_view',
+        properties: {
+          current_url: currentUrl,
+          page_views: pageViews,
+          landing_page: landingPage
+        },
+        event_timestamp: new Date(timestamp).toISOString()
+      }])
+      .select();
+
+    if (eventError) {
+      console.error('Error creating page view event:', eventError);
+      // Don't fail the request if event creation fails
+    }
+
+    console.log('✅ Page view data saved successfully');
+
+    res.status(200).json({ 
+      message: 'Page view data saved successfully',
+      visitor: { uid: visitor.uid, pageViews: visitor.page_views },
+      session: { 
+        sessionId: session.session_id, 
+        startedAt: session.started_at,
+        isNewSession: !existingSession
+      }
+    });
+
+  } catch (error) {
+    console.error('Page view tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
+app.post('/api/scroll-depth', async (req, res) => {
+  try {
+    console.log("📏 Received scroll depth data:", req.body);
+    const { siteId, sessionId, uniqueUserId, pageName, currentUrl, scrollDepth, timestamp } = req.body;
+
+    if (!siteId || !sessionId || !uniqueUserId || !pageName || !currentUrl || !scrollDepth || !timestamp) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Sanitize IDs
+    const sanitizedUserId = sanitizeUserId(uniqueUserId);
+    const sanitizedSessionId = sanitizeSessionId(sessionId);
+
+    // Insert scroll depth event
+    const { data, error } = await supabase
+      .from('events')
+      .insert([
+        {
+          uid: sanitizedUserId,
+          session_id: sanitizedSessionId,
+          site_id: siteId,
+          event_type: 'scroll',
+          event_name: 'scroll_depth',
+          properties: {
+            page_name: pageName,
+            current_url: currentUrl,
+            scroll_depth: scrollDepth
+          },
+          event_timestamp: new Date(timestamp).toISOString()
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('Supabase error saving scroll depth:', error);
+      return res.status(500).json({ message: 'Failed to save scroll depth data', error: error.message });
+    }
+
+    console.log('✅ Scroll depth data saved successfully');
+
+    res.status(201).json({
+      message: 'Scroll depth data saved successfully',
+      eventId: data[0].event_id
+    });
+
+  } catch (error) {
+    console.error('Scroll depth tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
+app.post('/api/sessiontime', async (req, res) => {
+  try {
+    console.log("⏱️ Received session time data:", req.body);
+    const { siteId, sessionId, uniqueUserId, sessionDuration } = req.body;
+
+    if (!siteId || !sessionId || !uniqueUserId || sessionDuration === undefined) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Sanitize IDs
+    const sanitizedUserId = sanitizeUserId(uniqueUserId);
+    const sanitizedSessionId = sanitizeSessionId(sessionId);
+
+    // Update session with duration and end time
+    const { data, error } = await supabase
+      .from('sessions')
+      .update({
+        duration: Math.round(sessionDuration), // duration in seconds
+        ended_at: new Date().toISOString()
+      })
+      .eq('session_id', sanitizedSessionId)
+      .select();
+
+    if (error) {
+      console.error('Supabase error updating session:', error);
+      return res.status(500).json({ message: 'Failed to update session data', error: error.message });
+    }
+
+    // Update visitor's last seen time
+    const { error: visitorUpdateError } = await supabase
+      .from('visitors')
+      .update({
+        last_seen: new Date().toISOString()
+      })
+      .eq('uid', sanitizedUserId);
+
+    if (visitorUpdateError) {
+      console.error('Error updating visitor last seen:', visitorUpdateError);
+    }
+
+    console.log('✅ Session data saved successfully');
+
+    res.status(200).json({
+      message: 'Session data saved successfully',
+      session: data[0]
+    });
+
+  } catch (error) {
+    console.error('Session tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
+app.post('/api/click-events', async (req, res) => {
+  try {
+    const { siteId, sessionId, uniqueUserId, elementType, elementText, elementId, elementClass, url, timestamp } = req.body;
+
+    console.log('🖱️ Received click event data:', {
+      siteId,
+      sessionId,
+      uniqueUserId,
+      elementType,
+      elementText,
+      elementId,
+      elementClass,
+      url,
+      timestamp: new Date(timestamp).toISOString()
+    });
+
+    if (!siteId || !sessionId || !uniqueUserId || !elementType || !elementText || !url || !timestamp) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Sanitize IDs
+    const sanitizedUserId = sanitizeUserId(uniqueUserId);
+    const sanitizedSessionId = sanitizeSessionId(sessionId);
+
+    // Insert click event
+    const { data, error } = await supabase
+      .from('events')
+      .insert([
+        {
+          uid: sanitizedUserId,
+          session_id: sanitizedSessionId,
+          site_id: siteId,
+          event_type: 'click',
+          event_name: 'element_click',
+          element_id: elementId,
+          element_class: elementClass,
+          element_text: elementText,
+          properties: {
+            element_type: elementType,
+            url: url
+          },
+          event_timestamp: new Date(timestamp).toISOString()
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('Supabase error saving click event:', error);
+      return res.status(500).json({ message: 'Failed to save click event', error: error.message });
+    }
+
+    // Update visitor's last seen time
+    const { error: visitorUpdateError } = await supabase
+      .from('visitors')
+      .update({
+        last_seen: new Date(timestamp).toISOString()
+      })
+      .eq('uid', sanitizedUserId);
+
+    if (visitorUpdateError) {
+      console.error('Error updating visitor last seen:', visitorUpdateError);
+    }
+
+    console.log('Click event data saved successfully');
+
+    res.status(200).json({
+      message: 'Click event data saved successfully',
+      eventId: data[0].event_id
+    });
+
+  } catch (error) {
+    console.error('Click event tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// New endpoint for form submissions and lead data
+app.post('/api/form-submit', async (req, res) => {
+  try {
+    const { 
+      siteId, 
+      sessionId, 
+      uniqueUserId, 
+      formData, 
+      formName, 
+      timestamp,
+      url 
+    } = req.body;
+
+    console.log('📝 Received form submission data:', {
+      siteId,
+      sessionId,
+      uniqueUserId,
+      formName,
+      formData,
+      timestamp: new Date(timestamp).toISOString()
+    });
+
+    if (!siteId || !sessionId || !uniqueUserId || !formData || !timestamp) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Sanitize IDs
+    const sanitizedUserId = sanitizeUserId(uniqueUserId);
+    const sanitizedSessionId = sanitizeSessionId(sessionId);
+
+    // Extract lead information from form data
+    const leadName = formData.name || formData.fullName || formData.firstName + ' ' + (formData.lastName || '') || null;
+    const leadEmail = formData.email || null;
+    const leadPhone = formData.phone || formData.phoneNumber || null;
+
+    // Update visitor with lead information if provided
+    if (leadName || leadEmail || leadPhone) {
+      const { error: visitorUpdateError } = await supabase
+        .from('visitors')
+        .update({
+          lead_status: 'lead',
+          lead_name: leadName,
+          lead_email: leadEmail,
+          lead_phone: leadPhone,
+          last_seen: new Date(timestamp).toISOString()
+        })
+        .eq('uid', sanitizedUserId);
+
+      if (visitorUpdateError) {
+        console.error('Error updating visitor with lead data:', visitorUpdateError);
+      }
+    }
+
+    // Insert form submission event
+    const { data, error } = await supabase
+      .from('events')
+      .insert([
+        {
+          uid: sanitizedUserId,
+          session_id: sanitizedSessionId,
+          site_id: siteId,
+          event_type: 'form_submit',
+          event_name: formName || 'form_submission',
+          properties: {
+            form_data: formData,
+            form_name: formName,
+            url: url,
+            lead_captured: !!(leadName || leadEmail || leadPhone)
+          },
+          event_timestamp: new Date(timestamp).toISOString()
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('❌ Supabase error saving form submission:', error);
+      return res.status(500).json({ message: 'Failed to save form submission', error: error.message });
+    }
+
+    console.log('✅ Form submission data saved successfully');
+
+    res.status(200).json({
+      message: 'Form submission data saved successfully',
+      eventId: data[0].event_id,
+      leadCaptured: !!(leadName || leadEmail || leadPhone)
+    });
+
+  } catch (error) {
+    console.error('❌ Form submission tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Endpoint for visitor identification/lead qualification
+app.post('/api/identify-visitor', async (req, res) => {
+  try {
+    const { 
+      siteId,
+      sessionId,
+      uniqueUserId,
+      leadData,
+      timestamp
+    } = req.body;
+
+    console.log('🔍 Received visitor identification data:', {
+      siteId,
+      sessionId,
+      uniqueUserId,
+      leadData,
+      timestamp: new Date(timestamp).toISOString()
+    });
+
+    if (!siteId || !sessionId || !uniqueUserId || !leadData || !timestamp) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Sanitize IDs
+    const sanitizedUserId = sanitizeUserId(uniqueUserId);
+    const sanitizedSessionId = sanitizeSessionId(sessionId);
+
+    // Update visitor with lead information
+    const { data: updatedVisitor, error: visitorUpdateError } = await supabase
+      .from('visitors')
+      .update({
+        lead_status: leadData.status || 'identified',
+        lead_name: leadData.name || null,
+        lead_email: leadData.email || null,
+        lead_phone: leadData.phone || null,
+        last_seen: new Date(timestamp).toISOString()
+      })
+      .eq('uid', sanitizedUserId)
+      .select()
+      .single();
+
+    if (visitorUpdateError) {
+      console.error('Error updating visitor with lead data:', visitorUpdateError);
+      return res.status(500).json({ message: 'Failed to update visitor lead data' });
+    }
+
+    // Insert identification event
+    const { data: identifyEvent, error: eventError } = await supabase
+      .from('events')
+      .insert([{
+        uid: sanitizedUserId,
+        session_id: sanitizedSessionId,
+        site_id: siteId,
+        event_type: 'identify',
+        event_name: 'visitor_identified',
+        properties: {
+          lead_data: leadData,
+          previous_status: 'unknown'
+        },
+        event_timestamp: new Date(timestamp).toISOString()
+      }])
+      .select();
+
+    if (eventError) {
+      console.error('Error creating identification event:', eventError);
+      // Don't fail the request if event creation fails
+    }
+
+    console.log('✅ Visitor identification data saved successfully');
+
+    res.status(200).json({
+      message: 'Visitor identification data saved successfully',
+      visitor: updatedVisitor,
+      eventId: identifyEvent?.[0]?.event_id
+    });
+
+  } catch (error) {
+    console.error('❌ Visitor identification tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
 
 app.post('/api/signup', async (req, res) => {
   try {
@@ -105,264 +806,6 @@ app.post('/api/login', async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-app.post('/api/pageviews', async (req, res) => {
-  try {
-    console.log("rppreofrjlds\n")
-    console.log(req.body)
-    const { siteId, sessionId, uniqueUserId, pageViews, timestamp } = req.body;
-    console.log("pageview is here  ")
-    console.log('📊 Received page view data:', {
-      siteId,
-      sessionId,
-      uniqueUserId,
-      pageViews,
-      timestamp: new Date(timestamp).toISOString()
-    });
-
-    if (!siteId || !sessionId || !pageViews || !timestamp) {
-      return res.status(400).json({ 
-        message: 'Missing required fields: siteId, sessionId, pageViews, timestamp' 
-      });
-    }
-
-    const { data, error } = await supabase
-      .from('page_views') // Make sure this table exists in your Supabase
-      .insert([
-        {
-          site_id: siteId,
-          session_id: sessionId,
-          page_views: pageViews, // JSON object with page paths and counts
-          timestamp: new Date(timestamp).toISOString(),
-          created_at: new Date().toISOString()
-        }
-      ])
-      .select();
-
-    if (error) {
-      console.error('❌ Supabase error saving page views:', error);
-      return res.status(500).json({ 
-        message: 'Failed to save page view data', 
-        error: error.message 
-      });
-    }
-
-    console.log('✅ Page view data saved successfully:', data[0]);
-
-    res.status(201).json({ 
-      message: 'Page view data saved successfully',
-      data: data[0]
-    });
-
-  } catch (error) {
-    console.error('❌ Page view tracking error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-
-
-
-app.post('/api/scroll-depth', async (req, res) => {
-  try {
-    console.log("📏 Received scroll depth data:", req.body);
-    const { siteId, sessionId, uniqueUserId, pageName, currentUrl, scrollDepth, timestamp } = req.body;
-
-    if (!siteId || !sessionId || !uniqueUserId || !pageName || !currentUrl || !scrollDepth || !timestamp) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const { data, error } = await supabase
-      .from('scroll_depth')
-      .insert([
-        {
-          site_id: siteId,
-          session_id: sessionId,
-          unique_user_id: uniqueUserId,
-          page_name: pageName,
-          current_url: currentUrl,
-          scroll_depth: scrollDepth,
-          timestamp: new Date(timestamp).toISOString()
-        }
-      ])
-      .select();
-
-    if (error) {
-      console.error('❌ Supabase error saving scroll depth:', error);
-      return res.status(500).json({ message: 'Failed to save scroll depth data', error: error.message });
-    }
-
-    console.log('✅ Scroll depth data saved successfully:', data[0]);
-
-    res.status(201).json({
-      message: 'Scroll depth data saved successfully',
-      data: data[0]
-    });
-
-  } catch (error) {
-    console.error('❌ Scroll depth tracking error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-
-app.post('/api/sessiontime', async (req, res) => {
-  try {
-    console.log("printing req.body for sessiontime")
-    console.log(req.body)
-    const { siteId, sessionId, uniqueUserId, sessionDuration } = req.body;
-
-    console.log("session time is here  ");
-
-    if (!siteId || !sessionId || !uniqueUserId || !sessionDuration) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const { data, error } = await supabase
-      .from('sessions')
-      .insert([
-        {
-          site_id: siteId,
-          session_id: sessionId,
-          unique_user_id: uniqueUserId,
-          session_duration: sessionDuration
-        }
-      ])
-      .select();
-
-    if (error) {
-      console.error('❌ Supabase error saving session:', error);
-      return res.status(500).json({ message: 'Failed to save session data', error: error.message });
-    }
-
-    console.log('✅ Session data saved successfully:', data[0]);
-
-    res.status(201).json({
-      message: 'Session data saved successfully',
-      data: data[0]
-    });
-
-  } catch (error) {
-    console.error('❌ Session tracking error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-app.post('/api/click-events', async (req, res) => {
-  try {
-    const { siteId, sessionId, uniqueUserId, elementType, elementText, elementId, elementClass, url, timestamp } = req.body;
-
-    console.log('🖱️ Received click event data:', {
-      siteId,
-      sessionId,
-      uniqueUserId,
-      elementType,
-      elementText,
-      elementId,
-      elementClass,
-      url,
-      timestamp: new Date(timestamp).toISOString()
-    });
-
-    if (!siteId || !sessionId || !uniqueUserId || !elementType || !elementText || !url || !timestamp) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const { data, error } = await supabase
-      .from('click_events')
-      .insert([
-        {
-          site_id: siteId,
-          session_id: sessionId,
-          unique_user_id: uniqueUserId,
-          element_type: elementType,
-          element_text: elementText,
-          element_id: elementId,
-          element_class: elementClass,
-          url: url,
-          timestamp: new Date(timestamp).toISOString()
-        }
-      ])
-      .select();
-
-    if (error) {
-      console.error('❌ Supabase error saving click event:', error);
-      return res.status(500).json({ message: 'Failed to save click event', error: error.message });
-    }
-
-    console.log('✅ Click event data saved successfully:', data[0]);
-
-    res.status(201).json({
-      message: 'Click event data saved successfully',
-      data: data[0]
-    });
-
-  } catch (error) {
-    console.error('❌ Click event tracking error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-
-app.post('/api/user-system-info', async (req, res) => {
-    // const systemData = {
-    //     siteId: siteId,
-    //     sessionId: sessionId,
-    //     uniqueUserId: this.userId,
-    //     browser: browser,
-    //     operatingSystem: os,
-    //     userAgent: userAgent,
-    //     screenInfo: screenInfo,
-    //     timezone: timezone,
-    //     language: language,
-    //     location: location,
-    //     timestamp: Date.now()
-    //   };
-    //complete for these systemData\
-
-    try{
-       const { siteId, sessionId, uniqueUserId, browser, operatingSystem, userAgent, screenInfo, timezone, language, location } = req.body;
-    console.log('🖥️ User system information:', {
-      siteId,
-      sessionId,
-      uniqueUserId,
-      browser,
-      operatingSystem,
-      userAgent,
-      screenInfo,
-      timezone,
-      language,
-      location
-    });
-
-    if (!siteId || !sessionId || !uniqueUserId) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const systemData = {
-      siteId: siteId,
-      sessionId: sessionId,
-      uniqueUserId: uniqueUserId,
-      browser: browser,
-      operatingSystem: operatingSystem,
-      userAgent: userAgent,
-      screenInfo: screenInfo,
-      timezone: timezone,
-      language: language,
-      location: location,
-      timestamp: Date.now()
-    };
-
-    res.status(200).json({
-      message: 'User system information fetched successfully',
-      data: systemData
-    });
-
-  } catch (error) {
-    console.error('❌ User system info error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -452,7 +895,6 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
   }
 });
 
-
 app.post('/api/addSite', authenticateToken, async (req, res) => {
   const { siteName, siteDomain } = req.body; 
   if (!siteName || !siteDomain) {
@@ -498,22 +940,6 @@ app.post('/api/addSite', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
-
-
-
-
-app.get('/api/fetch-data', async (req, res) => {
-  const { data, error } = await supabase
-    .from('owners') 
-    .select('owner_id')
-    .eq('email', email);
-  
-    if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-  res.status(200).json(data);
-});
-
 
 async function getOwnerID(email) {
   const { data, error } = await supabase
@@ -577,6 +1003,83 @@ app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
       .eq('site_id', siteId);
 
     const totalEvents = eventsData ? eventsData.length : 0;
+
+    // Calculate Daily Active Users (DAU) - users active in the last 24 hours
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+    
+    const { data: dauData, error: dauError } = await supabase
+      .from('visitors')
+      .select(`
+        uid,
+        sessions!inner(site_id, started_at)
+      `)
+      .eq('sessions.site_id', siteId)
+      .gte('sessions.started_at', oneDayAgo.toISOString());
+
+    const dailyActiveUsers = dauData ? [...new Set(dauData.map(v => v.uid))].length : 0;
+
+    // Calculate Monthly Active Users (MAU) - users active in the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { data: mauData, error: mauError } = await supabase
+      .from('visitors')
+      .select(`
+        uid,
+        sessions!inner(site_id, started_at)
+      `)
+      .eq('sessions.site_id', siteId)
+      .gte('sessions.started_at', thirtyDaysAgo.toISOString());
+
+    const monthlyActiveUsers = mauData ? [...new Set(mauData.map(v => v.uid))].length : 0;
+
+    // Get daily traffic data for the last 30 days (optimized)
+    const thirtyDaysAgoForTraffic = new Date();
+    thirtyDaysAgoForTraffic.setDate(thirtyDaysAgoForTraffic.getDate() - 30);
+
+    // Get all sessions from the last 30 days
+    const { data: allRecentSessions } = await supabase
+      .from('sessions')
+      .select('uid, started_at')
+      .eq('site_id', siteId)
+      .gte('started_at', thirtyDaysAgoForTraffic.toISOString());
+
+    // Get all page view events from the last 30 days
+    const { data: allRecentPageViews } = await supabase
+      .from('events')
+      .select('event_timestamp')
+      .eq('site_id', siteId)
+      .eq('event_type', 'page_view')
+      .gte('event_timestamp', thirtyDaysAgoForTraffic.toISOString());
+
+    // Process the data to create daily aggregates
+    const dailyTrafficData = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+
+      // Filter sessions for this day
+      const dailySessions = allRecentSessions?.filter(session => {
+        const sessionDate = new Date(session.started_at);
+        return sessionDate >= startOfDay && sessionDate < endOfDay;
+      }) || [];
+
+      // Filter page views for this day
+      const dailyPageViews = allRecentPageViews?.filter(event => {
+        const eventDate = new Date(event.event_timestamp);
+        return eventDate >= startOfDay && eventDate < endOfDay;
+      }) || [];
+
+      dailyTrafficData.push({
+        date: startOfDay.toISOString().split('T')[0], // YYYY-MM-DD format
+        visitors: [...new Set(dailySessions.map(s => s.uid))].length,
+        sessions: dailySessions.length,
+        pageViews: dailyPageViews.length
+      });
+    }
 
     // Get recent visitors with location data
     const { data: recentVisitors, error: recentVisitorsError } = await supabase
@@ -664,8 +1167,11 @@ app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
         uniqueVisitors,
         totalSessions,
         totalEvents,
-        leads: leadsData?.length || 0
+        leads: leadsData?.length || 0,
+        dailyActiveUsers,
+        monthlyActiveUsers
       },
+      dailyTrafficData,
       recentVisitors: recentVisitors || [],
       browserStats,
       deviceStats,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Users, Eye, MousePointer, UserCheck, Globe, Monitor, Smartphone, Download, Star } from 'lucide-react';
+import { ArrowLeft, Users, Eye, MousePointer, UserCheck, Globe, Monitor, Smartphone, Download, Star, TrendingUp } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../../Services/api';
 
 const SiteDetails = () => {
@@ -239,7 +240,7 @@ const SiteDetails = () => {
             {activeTab === 'overview' && (
               <>
                 {/* Analytics Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                   <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
                     <div className="flex items-center">
                       <div className="p-2 bg-blue-100 rounded-lg">
@@ -285,6 +286,128 @@ const SiteDetails = () => {
                         <p className="text-sm font-medium text-gray-600">Leads Generated</p>
                         <p className="text-2xl font-bold text-gray-900">{analytics.analytics.leads}</p>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-cyan-100 rounded-lg">
+                        <Users className="h-6 w-6 text-cyan-600" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Daily Active Users</p>
+                        <p className="text-2xl font-bold text-gray-900">{analytics.analytics.dailyActiveUsers || 0}</p>
+                        <p className="text-xs text-gray-500">Last 24 hours</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-indigo-100 rounded-lg">
+                        <Users className="h-6 w-6 text-indigo-600" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Monthly Active Users</p>
+                        <p className="text-2xl font-bold text-gray-900">{analytics.analytics.monthlyActiveUsers || 0}</p>
+                        <p className="text-xs text-gray-500">Last 30 days</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Traffic Chart */}
+                <div className="bg-gray-50 rounded-lg shadow-sm border p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <TrendingUp className="h-5 w-5 mr-2" />
+                    Traffic Overview - Last 30 Days
+                  </h3>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={analytics.dailyTrafficData || []}
+                        margin={{
+                          top: 5,
+                          right: 30,
+                          left: 20,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                        <XAxis 
+                          dataKey="date" 
+                          tick={{ fontSize: 12 }}
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            return `${date.getMonth() + 1}/${date.getDate()}`;
+                          }}
+                        />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip 
+                          labelFormatter={(value) => {
+                            const date = new Date(value);
+                            return date.toLocaleDateString();
+                          }}
+                          formatter={(value, name) => [value, name.charAt(0).toUpperCase() + name.slice(1)]}
+                        />
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="visitors" 
+                          stroke="#3B82F6" 
+                          strokeWidth={2}
+                          dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                          name="Visitors"
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="sessions" 
+                          stroke="#10B981" 
+                          strokeWidth={2}
+                          dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+                          name="Sessions"
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="pageViews" 
+                          stroke="#8B5CF6" 
+                          strokeWidth={2}
+                          dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
+                          name="Page Views"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-4 text-center">
+                    <div className="bg-white rounded-lg p-3">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-gray-700">Visitors</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900 mt-1">
+                        {analytics.dailyTrafficData?.reduce((sum, day) => sum + day.visitors, 0) || 0}
+                      </p>
+                      <p className="text-xs text-gray-500">Total this month</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-gray-700">Sessions</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900 mt-1">
+                        {analytics.dailyTrafficData?.reduce((sum, day) => sum + day.sessions, 0) || 0}
+                      </p>
+                      <p className="text-xs text-gray-500">Total this month</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-gray-700">Page Views</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900 mt-1">
+                        {analytics.dailyTrafficData?.reduce((sum, day) => sum + day.pageViews, 0) || 0}
+                      </p>
+                      <p className="text-xs text-gray-500">Total this month</p>
                     </div>
                   </div>
                 </div>
