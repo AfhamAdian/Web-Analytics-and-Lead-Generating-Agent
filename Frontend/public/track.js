@@ -283,6 +283,9 @@ const cookieConsent = {
     // Track current page view
     this.trackPageView(siteId, sessionId);
 
+    // Send user system information immediately when entering website
+    this.sendUserSystemInfo(siteId, sessionId);
+
     // Listen for navigation changes (hash changes like #features, #solutions, etc.)
     window.addEventListener('hashchange', () => {
       console.log(`🔗 Hash changed to: ${window.location.hash}`);
@@ -480,6 +483,138 @@ const cookieConsent = {
       keepalive: true,
     }).catch((err) => {
       console.warn("Scroll depth tracking failed:", err);
+    });
+  },
+
+  // Send user system information immediately when entering website
+  sendUserSystemInfo: function(siteId, sessionId) {
+    // Get browser information
+    const userAgent = navigator.userAgent;
+    const browser = this.getBrowserInfo(userAgent);
+    const os = this.getOSInfo(userAgent);
+    
+    // Get screen information
+    const screenInfo = {
+      width: screen.width,
+      height: screen.height,
+      availWidth: screen.availWidth,
+      availHeight: screen.availHeight,
+      colorDepth: screen.colorDepth
+    };
+
+    // Get timezone
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Get language
+    const language = navigator.language || navigator.userLanguage;
+
+    // Get location (if available)
+    this.getUserLocation().then(location => {
+      const systemData = {
+        siteId: siteId,
+        sessionId: sessionId,
+        uniqueUserId: this.userId,
+        browser: browser,
+        operatingSystem: os,
+        userAgent: userAgent,
+        screenInfo: screenInfo,
+        timezone: timezone,
+        language: language,
+        location: location,
+        timestamp: Date.now()
+      };
+
+      console.log("💻 User system info tracked:", systemData);
+
+      fetch("http://localhost:5000/api/user-system-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(systemData),
+        keepalive: true,
+      }).catch((err) => {
+        console.warn("User system info tracking failed:", err);
+      });
+    }).catch(() => {
+      // Send without location if geolocation fails
+      const systemData = {
+        siteId: siteId,
+        sessionId: sessionId,
+        uniqueUserId: this.userId,
+        browser: browser,
+        operatingSystem: os,
+        userAgent: userAgent,
+        screenInfo: screenInfo,
+        timezone: timezone,
+        language: language,
+        location: null,
+        timestamp: Date.now()
+      };
+
+      console.log("💻 User system info tracked (no location):", systemData);
+
+      fetch("http://localhost:5000/api/user-system-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(systemData),
+        keepalive: true,
+      }).catch((err) => {
+        console.warn("User system info tracking failed:", err);
+      });
+    });
+  },
+
+  // Get browser information from user agent
+  getBrowserInfo: function(userAgent) {
+    if (userAgent.includes("Edg")) return "Microsoft Edge";
+    if (userAgent.includes("Chrome") && !userAgent.includes("Chromium")) return "Google Chrome";
+    if (userAgent.includes("Firefox")) return "Mozilla Firefox";
+    if (userAgent.includes("Safari") && !userAgent.includes("Chrome")) return "Safari";
+    if (userAgent.includes("Opera") || userAgent.includes("OPR")) return "Opera";
+    if (userAgent.includes("Brave")) return "Brave";
+    if (userAgent.includes("Vivaldi")) return "Vivaldi";
+    return "Unknown Browser";
+  },
+
+  // Get operating system information from user agent
+  getOSInfo: function(userAgent) {
+    if (userAgent.includes("Windows NT 10.0")) return "Windows 10/11";
+    if (userAgent.includes("Windows NT 6.3")) return "Windows 8.1";
+    if (userAgent.includes("Windows NT 6.2")) return "Windows 8";
+    if (userAgent.includes("Windows NT 6.1")) return "Windows 7";
+    if (userAgent.includes("Windows")) return "Windows";
+    if (userAgent.includes("Mac OS X")) return "macOS";
+    if (userAgent.includes("Linux")) return "Linux";
+    if (userAgent.includes("Android")) return "Android";
+    if (userAgent.includes("iPhone") || userAgent.includes("iPad")) return "iOS";
+    return "Unknown OS";
+  },
+
+  // Get user location using geolocation API
+  getUserLocation: function() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation not supported"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+        },
+        (error) => {
+          console.warn("Location access denied or failed:", error.message);
+          reject(error);
+        },
+        {
+          timeout: 5000,
+          maximumAge: 300000, // 5 minutes
+          enableHighAccuracy: false
+        }
+      );
     });
   },
 
