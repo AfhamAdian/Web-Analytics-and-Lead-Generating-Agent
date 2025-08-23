@@ -180,7 +180,7 @@ export default function RootLayout({
           {/* Tracking script injection */}
           <Script
             src="http://localhost:8080/track.js"
-            site-id="fabricxaicom"
+            site-id="429d4183-eaba-4698-8475-3e8d5e7da1a3"
             strategy="afterInteractive"
             async
           />
