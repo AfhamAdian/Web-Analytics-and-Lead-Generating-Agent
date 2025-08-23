@@ -274,6 +274,12 @@ const cookieConsent = {
       sessionStorage.setItem("sessionId", sessionId);
     }
 
+    // Initialize session start time if not already set
+    if (!sessionStorage.getItem("sessionStart")) {
+      sessionStorage.setItem("sessionStart", Date.now());
+      console.log("🕐 Session started at:", new Date().toISOString());
+    }
+
     // Track current page view
     this.trackPageView(siteId, sessionId);
 
@@ -308,19 +314,173 @@ const cookieConsent = {
 
     // Send data periodically and on page unload
     window.addEventListener('beforeunload', () => {
-      this.sendPageViewData(siteId, sessionId);
+      this.sendPageViewData(siteId, sessionId, true); // Pass true to indicate closing
+      this.sendSessionTimeData(siteId, sessionId); // Send session time data
     });
 
     window.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         this.sendPageViewData(siteId, sessionId);
+        // Removed session time data - only send on page close/reload
       }
     });
 
-    // Send data every 30 seconds
+    // Send data every 30 seconds and check for session timeout
     setInterval(() => {
-      this.sendPageViewData(siteId, sessionId);
+      // Check if current session is still valid (not exceeded 30 minutes)
+      const currentSessionId = sessionStorage.getItem("sessionId");
+      const sessionStart = parseInt(sessionStorage.getItem("sessionStart"), 10);
+      
+      if (sessionStart && currentSessionId) {
+        const sessionDurationMinutes = Math.floor((Date.now() - sessionStart) / (1000 * 60));
+        
+        if (sessionDurationMinutes >= 30) {
+          console.log("⏰ Session timeout detected in interval, starting new session");
+          this.startNewSession(siteId);
+        } else {
+          this.sendPageViewData(siteId, currentSessionId);
+        }
+      }
     }, 30000);
+
+    // Add click event tracking
+    this.setupClickEventTracking(siteId, sessionId);
+    
+    // Add scroll depth tracking
+    this.setupScrollDepthTracking(siteId, sessionId);
+  },
+
+  // Setup click event tracking for buttons, images, and other elements
+  setupClickEventTracking: function(siteId, sessionId) {
+    document.addEventListener('click', (event) => {
+      const element = event.target;
+      
+      // Track button clicks
+      if (element.tagName === 'BUTTON' || element.type === 'button' || element.type === 'submit') {
+        this.sendClickEvent({
+          siteId,
+          sessionId,
+          uniqueUserId: this.userId,
+          elementType: 'button',
+          elementText: element.textContent || element.value || 'Unknown Button',
+          elementId: element.id || null,
+          elementClass: element.className || null,
+          url: window.location.href,
+          timestamp: Date.now()
+        });
+      }
+      
+      // Track image clicks
+      else if (element.tagName === 'IMG') {
+        this.sendClickEvent({
+          siteId,
+          sessionId,
+          uniqueUserId: this.userId,
+          elementType: 'image',
+          elementText: element.alt || element.src || 'Image',
+          elementId: element.id || null,
+          elementClass: element.className || null,
+          imageSrc: element.src,
+          url: window.location.href,
+          timestamp: Date.now()
+        });
+      }
+      
+      // Track link clicks
+      else if (element.tagName === 'A') {
+        this.sendClickEvent({
+          siteId,
+          sessionId,
+          uniqueUserId: this.userId,
+          elementType: 'link',
+          elementText: element.textContent || 'Link',
+          elementId: element.id || null,
+          elementClass: element.className || null,
+          linkUrl: element.href || null,
+          url: window.location.href,
+          timestamp: Date.now()
+        });
+      }
+      
+      // Track div/span clicks (for custom interactive elements)
+      else if (element.tagName === 'DIV' || element.tagName === 'SPAN') {
+        // Only track if element has click handlers or is marked as interactive
+        if (element.onclick || element.style.cursor === 'pointer' || element.getAttribute('role') === 'button') {
+          this.sendClickEvent({
+            siteId,
+            sessionId,
+            uniqueUserId: this.userId,
+            elementType: element.tagName.toLowerCase(),
+            elementText: element.textContent || element.innerText || 'Interactive Element',
+            elementId: element.id || null,
+            elementClass: element.className || null,
+            url: window.location.href,
+            timestamp: Date.now()
+          });
+        }
+      }
+    });
+  },
+
+  // Send click event data to backend
+  sendClickEvent: function(clickData) {
+    console.log("🖱️ Click event tracked:", clickData);
+    
+    fetch("http://localhost:5000/api/click-events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(clickData),
+      keepalive: true,
+    }).catch((err) => {
+      console.warn("Click event tracking failed:", err);
+    });
+  },
+
+  // Setup scroll depth tracking
+  setupScrollDepthTracking: function(siteId, sessionId) {
+    let trackedDepths = new Set(); // Track which depths have been sent to avoid duplicates
+    
+    window.addEventListener('scroll', function() {
+      var scrollDepth = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+      console.log('Scroll Depth: ' + scrollDepth + '%');
+      
+      // Define thresholds to track
+      const thresholds = [25, 50, 75, 90, 100];
+      
+      // Check if we've reached any new threshold
+      for (const threshold of thresholds) {
+        if (scrollDepth >= threshold && !trackedDepths.has(threshold)) {
+          trackedDepths.add(threshold);
+          
+          // Send scroll depth data to backend
+          this.sendScrollDepthEvent({
+            siteId: siteId,
+            sessionId: sessionId,
+            uniqueUserId: this.userId,
+            pageName: document.title || 'Untitled Page',
+            currentUrl: window.location.href,
+            scrollDepth: threshold,
+            timestamp: Date.now()
+          });
+          
+          break; // Only send one threshold per scroll event
+        }
+      }
+    }.bind(this));
+  },
+
+  // Send scroll depth event data to backend
+  sendScrollDepthEvent: function(scrollData) {
+    console.log("📏 Scroll depth tracked:", scrollData);
+    
+    fetch("http://localhost:5000/api/scroll-depth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(scrollData),
+      keepalive: true,
+    }).catch((err) => {
+      console.warn("Scroll depth tracking failed:", err);
+    });
   },
 
   // Get current page URL including hash
@@ -334,33 +494,49 @@ const cookieConsent = {
   trackPageView: function(siteId, sessionId) {
     const currentPage = this.getCurrentPageUrl();
     
-    // Get existing page views from localStorage (persistent across sessions)
-    const storageKey = `pageViews_${this.userId}`;
-    let pageViews = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    // Get existing page views from sessionStorage (resets when browser session ends)
+    const storageKey = `pageViews_${sessionId}`;
+    let pageViews = JSON.parse(sessionStorage.getItem(storageKey) || '{}');
     
     // Increment current page view count
     pageViews[currentPage] = (pageViews[currentPage] || 0) + 1;
     
-    // Save updated page views to localStorage
-    localStorage.setItem(storageKey, JSON.stringify(pageViews));
+    // Save updated page views to sessionStorage
+    sessionStorage.setItem(storageKey, JSON.stringify(pageViews));
     
     console.log(`📊 Page view tracked: ${currentPage} (${pageViews[currentPage]} times)`);
-    console.log("📈 All page views for user:", pageViews);
+    console.log("📈 All page views for current session:", pageViews);
 
     // Store current session data
     this.pageViews = pageViews;
   },
 
   // Send page view data to backend
-  sendPageViewData: function(siteId, sessionId) {
+  sendPageViewData: function(siteId, sessionId, isClosing = false) {
     if (!this.userId || Object.keys(this.pageViews).length === 0) {
       return;
+    }
+
+    // Calculate session duration (in minutes)
+    let sessionStart = parseInt(sessionStorage.getItem("sessionStart"), 10);
+    if (!sessionStart) {
+      sessionStart = Date.now();
+      sessionStorage.setItem("sessionStart", sessionStart);
+    }
+    const sessionDurationMinutes = Math.floor((Date.now() - sessionStart) / (1000 * 60));
+
+    // Check if session exceeds 30 minutes, but only start new session if not closing
+    if (sessionDurationMinutes >= 30 && !isClosing) {
+      console.log("⏰ Session exceeded 30 minutes, starting new session");
+      this.startNewSession(siteId);
+      return; // Exit to avoid sending data with old session
     }
 
     const pageViewData = {
       siteId: siteId,
       sessionId: sessionId,
       uniqueUserId: this.userId, // Include the unique user ID
+      // sessionDuration: sessionDurationMinutes, // Session duration in minutes
       pageViews: this.pageViews,
       timestamp: Date.now()
     };
@@ -375,6 +551,71 @@ const cookieConsent = {
     }).catch((err) => {
       console.warn("Page view tracking failed:", err);
     });
+  },
+
+  // Send session time data to backend when session ends
+  sendSessionTimeData: function(siteId, sessionId) {
+    if (!this.userId) {
+      return;
+    }
+
+    // Calculate final session duration in minutes
+    let sessionStart = parseInt(sessionStorage.getItem("sessionStart"), 10);
+    if (!sessionStart) {
+      console.warn("⚠️ Session start time not found");
+      return;
+    }
+    
+    const sessionDurationMinutes = Math.floor((Date.now() - sessionStart) / (1000*60));
+
+    const sessionTimeData = {
+      siteId: siteId,
+      sessionId: sessionId,
+      uniqueUserId: this.userId,
+      sessionDuration: sessionDurationMinutes, // Total session time in minutes
+      sessionEndTime: Date.now(),
+      sessionStartTime: sessionStart
+    };
+    
+    console.log("⏱️ Sending session time data to backend:", sessionTimeData);
+    
+  
+      fetch("http://localhost:5000/api/sessiontime", {
+        method: "POST", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sessionTimeData),
+        keepalive: true,
+      }).catch((err) => {
+        console.warn("Session time tracking failed:", err);
+      });
+    
+  },
+
+  // Start a new session when the current one exceeds 30 minutes
+  startNewSession: function(siteId) {
+    console.log("🔄 Starting new session due to 30-minute limit");
+    
+    // Send final session time data for current session before starting new one
+    const currentSessionId = sessionStorage.getItem("sessionId");
+    if (currentSessionId) {
+      this.sendSessionTimeData(siteId, currentSessionId);
+    }
+
+    // Generate new session ID
+    const newSessionId = 'session_' + 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = Math.random() * 16 | 0;
+      const v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+
+    // Reset session storage with new session
+    sessionStorage.setItem("sessionId", newSessionId);
+    sessionStorage.setItem("sessionStart", Date.now());
+
+    console.log("✨ New session started:", newSessionId);
+
+    // Re-initialize tracking with new session
+    this.initializePageTracking();
   }
 };
 
