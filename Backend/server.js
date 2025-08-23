@@ -21,9 +21,180 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 
-
-
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+
+app.post('/api/pageviews', async (req, res) => {
+  try {
+    console.log("rppreofrjlds\n")
+    console.log(req.body)
+    const { siteId, sessionId, uniqueUserId, pageViews, timestamp } = req.body;
+    console.log("pageview is here  ")
+    console.log('📊 Received page view data:', {
+      siteId,
+      sessionId,
+      uniqueUserId,
+      pageViews,
+      timestamp: new Date(timestamp).toISOString()
+    });
+
+    if (!siteId || !sessionId || !pageViews || !timestamp) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: siteId, sessionId, pageViews, timestamp' 
+      });
+    }
+
+    console.log('✅ Page view data saved successfully');
+
+    res.status(200).json({ 
+      message: 'Page view data saved successfully',
+    });
+
+  } catch (error) {
+    console.error('Page view tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
+app.post('/api/scroll-depth', async (req, res) => {
+  try {
+    console.log("📏 Received scroll depth data:", req.body);
+    const { siteId, sessionId, uniqueUserId, pageName, currentUrl, scrollDepth, timestamp } = req.body;
+
+    if (!siteId || !sessionId || !uniqueUserId || !pageName || !currentUrl || !scrollDepth || !timestamp) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // const { data, error } = await supabase
+    //   .from('scroll_depth')
+    //   .insert([
+    //     {
+    //       site_id: siteId,
+    //       session_id: sessionId,
+    //       unique_user_id: uniqueUserId,
+    //       page_name: pageName,
+    //       current_url: currentUrl,
+    //       scroll_depth: scrollDepth,
+    //       timestamp: new Date(timestamp).toISOString()
+    //     }
+    //   ])
+    //   .select();
+
+    // if (error) {
+    //   console.error(' Supabase error saving scroll depth:', error);
+    //   return res.status(500).json({ message: 'Failed to save scroll depth data', error: error.message });
+    // }
+
+    console.log('Scroll depth data saved successfully');
+
+    res.status(201).json({
+      message: 'Scroll depth data saved successfully',
+    });
+
+  } catch (error) {
+    console.error('Scroll depth tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
+app.post('/api/sessiontime', async (req, res) => {
+  try {
+    console.log("printing req.body for sessiontime")
+    console.log(req.body)
+    const { siteId, sessionId, uniqueUserId, sessionDuration } = req.body;
+
+    console.log("session time is here  ");
+
+    if (!siteId || !sessionId || !uniqueUserId || !sessionDuration) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    console.log('✅ Session data saved successfully');
+
+    res.status(200).json({
+      message: 'Session data saved successfully',
+    });
+
+  } catch (error) {
+    console.error('Session tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
+app.post('/api/click-events', async (req, res) => {
+  try {
+    const { siteId, sessionId, uniqueUserId, elementType, elementText, elementId, elementClass, url, timestamp } = req.body;
+
+    console.log('🖱️ Received click event data:', {
+      siteId,
+      sessionId,
+      uniqueUserId,
+      elementType,
+      elementText,
+      elementId,
+      elementClass,
+      url,
+      timestamp: new Date(timestamp).toISOString()
+    });
+
+    if (!siteId || !sessionId || !uniqueUserId || !elementType || !elementText || !url || !timestamp) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // const { data, error } = await supabase
+    //   .from('click_events')
+    //   .insert([
+    //     {
+    //       site_id: siteId,
+    //       session_id: sessionId,
+    //       unique_user_id: uniqueUserId,
+    //       element_type: elementType,
+    //       element_text: elementText,
+    //       element_id: elementId,
+    //       element_class: elementClass,
+    //       url: url,
+    //       timestamp: new Date(timestamp).toISOString()
+    //     }
+    //   ])
+    //   .select();
+
+    // if (error) {
+    //   console.error('❌ Supabase error saving click event:', error);
+    //   return res.status(500).json({ message: 'Failed to save click event', error: error.message });
+    // }
+
+    console.log('✅ Click event data saved successfully');
+
+    res.status(200).json({
+      message: 'Click event data saved successfully',
+    });
+
+  } catch (error) {
+    console.error('❌ Click event tracking error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
 
 app.post('/api/signup', async (req, res) => {
   try {
@@ -105,203 +276,6 @@ app.post('/api/login', async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-app.post('/api/pageviews', async (req, res) => {
-  try {
-    console.log("rppreofrjlds\n")
-    console.log(req.body)
-    const { siteId, sessionId, uniqueUserId, pageViews, timestamp } = req.body;
-    console.log("pageview is here  ")
-    console.log('📊 Received page view data:', {
-      siteId,
-      sessionId,
-      uniqueUserId,
-      pageViews,
-      timestamp: new Date(timestamp).toISOString()
-    });
-
-    if (!siteId || !sessionId || !pageViews || !timestamp) {
-      return res.status(400).json({ 
-        message: 'Missing required fields: siteId, sessionId, pageViews, timestamp' 
-      });
-    }
-
-    const { data, error } = await supabase
-      .from('page_views') // Make sure this table exists in your Supabase
-      .insert([
-        {
-          site_id: siteId,
-          session_id: sessionId,
-          page_views: pageViews, // JSON object with page paths and counts
-          timestamp: new Date(timestamp).toISOString(),
-          created_at: new Date().toISOString()
-        }
-      ])
-      .select();
-
-    if (error) {
-      console.error('❌ Supabase error saving page views:', error);
-      return res.status(500).json({ 
-        message: 'Failed to save page view data', 
-        error: error.message 
-      });
-    }
-
-    console.log('✅ Page view data saved successfully:', data[0]);
-
-    res.status(201).json({ 
-      message: 'Page view data saved successfully',
-      data: data[0]
-    });
-
-  } catch (error) {
-    console.error('❌ Page view tracking error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-
-
-
-app.post('/api/scroll-depth', async (req, res) => {
-  try {
-    console.log("📏 Received scroll depth data:", req.body);
-    const { siteId, sessionId, uniqueUserId, pageName, currentUrl, scrollDepth, timestamp } = req.body;
-
-    if (!siteId || !sessionId || !uniqueUserId || !pageName || !currentUrl || !scrollDepth || !timestamp) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const { data, error } = await supabase
-      .from('scroll_depth')
-      .insert([
-        {
-          site_id: siteId,
-          session_id: sessionId,
-          unique_user_id: uniqueUserId,
-          page_name: pageName,
-          current_url: currentUrl,
-          scroll_depth: scrollDepth,
-          timestamp: new Date(timestamp).toISOString()
-        }
-      ])
-      .select();
-
-    if (error) {
-      console.error('❌ Supabase error saving scroll depth:', error);
-      return res.status(500).json({ message: 'Failed to save scroll depth data', error: error.message });
-    }
-
-    console.log('✅ Scroll depth data saved successfully:', data[0]);
-
-    res.status(201).json({
-      message: 'Scroll depth data saved successfully',
-      data: data[0]
-    });
-
-  } catch (error) {
-    console.error('❌ Scroll depth tracking error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-
-app.post('/api/sessiontime', async (req, res) => {
-  try {
-    console.log("printing req.body for sessiontime")
-    console.log(req.body)
-    const { siteId, sessionId, uniqueUserId, sessionDuration } = req.body;
-
-    console.log("session time is here  ");
-
-    if (!siteId || !sessionId || !uniqueUserId || !sessionDuration) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const { data, error } = await supabase
-      .from('sessions')
-      .insert([
-        {
-          site_id: siteId,
-          session_id: sessionId,
-          unique_user_id: uniqueUserId,
-          session_duration: sessionDuration
-        }
-      ])
-      .select();
-
-    if (error) {
-      console.error('❌ Supabase error saving session:', error);
-      return res.status(500).json({ message: 'Failed to save session data', error: error.message });
-    }
-
-    console.log('✅ Session data saved successfully:', data[0]);
-
-    res.status(201).json({
-      message: 'Session data saved successfully',
-      data: data[0]
-    });
-
-  } catch (error) {
-    console.error('❌ Session tracking error:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-app.post('/api/click-events', async (req, res) => {
-  try {
-    const { siteId, sessionId, uniqueUserId, elementType, elementText, elementId, elementClass, url, timestamp } = req.body;
-
-    console.log('🖱️ Received click event data:', {
-      siteId,
-      sessionId,
-      uniqueUserId,
-      elementType,
-      elementText,
-      elementId,
-      elementClass,
-      url,
-      timestamp: new Date(timestamp).toISOString()
-    });
-
-    if (!siteId || !sessionId || !uniqueUserId || !elementType || !elementText || !url || !timestamp) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const { data, error } = await supabase
-      .from('click_events')
-      .insert([
-        {
-          site_id: siteId,
-          session_id: sessionId,
-          unique_user_id: uniqueUserId,
-          element_type: elementType,
-          element_text: elementText,
-          element_id: elementId,
-          element_class: elementClass,
-          url: url,
-          timestamp: new Date(timestamp).toISOString()
-        }
-      ])
-      .select();
-
-    if (error) {
-      console.error('❌ Supabase error saving click event:', error);
-      return res.status(500).json({ message: 'Failed to save click event', error: error.message });
-    }
-
-    console.log('✅ Click event data saved successfully:', data[0]);
-
-    res.status(201).json({
-      message: 'Click event data saved successfully',
-      data: data[0]
-    });
-
-  } catch (error) {
-    console.error('❌ Click event tracking error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -391,7 +365,6 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
   }
 });
 
-
 app.post('/api/addSite', authenticateToken, async (req, res) => {
   const { siteName, siteDomain } = req.body; 
   if (!siteName || !siteDomain) {
@@ -437,22 +410,6 @@ app.post('/api/addSite', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
-
-
-
-
-app.get('/api/fetch-data', async (req, res) => {
-  const { data, error } = await supabase
-    .from('owners') 
-    .select('owner_id')
-    .eq('email', email);
-  
-    if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-  res.status(200).json(data);
-});
-
 
 async function getOwnerID(email) {
   const { data, error } = await supabase
