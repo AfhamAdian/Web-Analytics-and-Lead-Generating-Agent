@@ -167,6 +167,7 @@ export default function InsightAndStory() {
               type="email"
               placeholder="Enter your email address"
               className="px-4 py-2 rounded-md text-black bg-[#d9d9d9] w-full sm:w-80"
+              suppressHydrationWarning={true}
             />
             <Button className="w-full sm:w-40" onClick={handleSubscribe}>
               Subscribe

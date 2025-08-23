@@ -1004,6 +1004,83 @@ app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
 
     const totalEvents = eventsData ? eventsData.length : 0;
 
+    // Calculate Daily Active Users (DAU) - users active in the last 24 hours
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+    
+    const { data: dauData, error: dauError } = await supabase
+      .from('visitors')
+      .select(`
+        uid,
+        sessions!inner(site_id, started_at)
+      `)
+      .eq('sessions.site_id', siteId)
+      .gte('sessions.started_at', oneDayAgo.toISOString());
+
+    const dailyActiveUsers = dauData ? [...new Set(dauData.map(v => v.uid))].length : 0;
+
+    // Calculate Monthly Active Users (MAU) - users active in the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { data: mauData, error: mauError } = await supabase
+      .from('visitors')
+      .select(`
+        uid,
+        sessions!inner(site_id, started_at)
+      `)
+      .eq('sessions.site_id', siteId)
+      .gte('sessions.started_at', thirtyDaysAgo.toISOString());
+
+    const monthlyActiveUsers = mauData ? [...new Set(mauData.map(v => v.uid))].length : 0;
+
+    // Get daily traffic data for the last 30 days (optimized)
+    const thirtyDaysAgoForTraffic = new Date();
+    thirtyDaysAgoForTraffic.setDate(thirtyDaysAgoForTraffic.getDate() - 30);
+
+    // Get all sessions from the last 30 days
+    const { data: allRecentSessions } = await supabase
+      .from('sessions')
+      .select('uid, started_at')
+      .eq('site_id', siteId)
+      .gte('started_at', thirtyDaysAgoForTraffic.toISOString());
+
+    // Get all page view events from the last 30 days
+    const { data: allRecentPageViews } = await supabase
+      .from('events')
+      .select('event_timestamp')
+      .eq('site_id', siteId)
+      .eq('event_type', 'page_view')
+      .gte('event_timestamp', thirtyDaysAgoForTraffic.toISOString());
+
+    // Process the data to create daily aggregates
+    const dailyTrafficData = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+
+      // Filter sessions for this day
+      const dailySessions = allRecentSessions?.filter(session => {
+        const sessionDate = new Date(session.started_at);
+        return sessionDate >= startOfDay && sessionDate < endOfDay;
+      }) || [];
+
+      // Filter page views for this day
+      const dailyPageViews = allRecentPageViews?.filter(event => {
+        const eventDate = new Date(event.event_timestamp);
+        return eventDate >= startOfDay && eventDate < endOfDay;
+      }) || [];
+
+      dailyTrafficData.push({
+        date: startOfDay.toISOString().split('T')[0], // YYYY-MM-DD format
+        visitors: [...new Set(dailySessions.map(s => s.uid))].length,
+        sessions: dailySessions.length,
+        pageViews: dailyPageViews.length
+      });
+    }
+
     // Get recent visitors with location data
     const { data: recentVisitors, error: recentVisitorsError } = await supabase
       .from('visitors')
@@ -1090,8 +1167,11 @@ app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
         uniqueVisitors,
         totalSessions,
         totalEvents,
-        leads: leadsData?.length || 0
+        leads: leadsData?.length || 0,
+        dailyActiveUsers,
+        monthlyActiveUsers
       },
+      dailyTrafficData,
       recentVisitors: recentVisitors || [],
       browserStats,
       deviceStats,
