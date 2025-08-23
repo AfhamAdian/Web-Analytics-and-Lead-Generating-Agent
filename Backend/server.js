@@ -283,9 +283,7 @@ app.post('/api/pageviews', async (req, res) => {
       uniqueUserId,
       pageViews,
       timestamp: new Date(timestamp).toISOString(),
-      browser,
-      os,
-      device
+      
     });
 
     if (!siteId || !sessionId || !uniqueUserId || !pageViews || !timestamp) {
