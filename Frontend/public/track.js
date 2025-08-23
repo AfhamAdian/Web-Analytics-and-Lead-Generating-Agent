@@ -240,6 +240,11 @@ const cookieConsent = {
     };
   },
 
+
+
+
+
+  
   // Initialize page tracking after user ID is available
   initializePageTracking: function() {
     if (!this.userId) {
@@ -384,6 +389,13 @@ if (document.readyState === 'loading') {
 } else {
   cookieConsent.showConsentBanner();
 }
+
+
+
+
+
+
+
 
 
 /*
