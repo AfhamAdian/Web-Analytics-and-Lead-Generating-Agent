@@ -1367,6 +1367,19 @@ app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
       return acc;
     }, {}) || {};
 
+    // Get OS analytics
+    const { data: osData, error: osError } = await supabase
+      .from('sessions')
+      .select('os')
+      .eq('site_id', siteId)
+      .not('os', 'is', null);
+
+    const osStats = osData?.reduce((acc, session) => {
+      const os = session.os || 'Unknown';
+      acc[os] = (acc[os] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
     // Get country analytics
     const { data: countryData, error: countryError } = await supabase
       .from('visitors')
@@ -1415,6 +1428,7 @@ app.get('/api/sites/:siteId', authenticateToken, async (req, res) => {
       recentVisitors: recentVisitors || [],
       browserStats,
       deviceStats,
+      osStats,
       countryStats,
       leads: leadsData || []
     });

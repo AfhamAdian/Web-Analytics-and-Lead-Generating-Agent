@@ -268,11 +268,13 @@ const SiteDetails = () => {
                   <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
                     <div className="flex items-center">
                       <div className="p-2 bg-purple-100 rounded-lg">
-                        <MousePointer className="h-6 w-6 text-purple-600" />
+                        <Eye className="h-6 w-6 text-purple-600" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Events</p>
-                        <p className="text-2xl font-bold text-gray-900">{analytics.analytics.totalEvents}</p>
+                        <p className="text-sm font-medium text-gray-600">Total Page Views</p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {analytics.dailyTrafficData?.reduce((sum, day) => sum + day.pageViews, 0) || 0}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -316,118 +318,283 @@ const SiteDetails = () => {
                   </div>
                 </div>
 
-                {/* Traffic Chart */}
-                <div className="bg-gray-50 rounded-lg shadow-sm border p-6 mb-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <TrendingUp className="h-5 w-5 mr-2" />
-                    Traffic Overview - Last 30 Days
-                  </h3>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={analytics.dailyTrafficData || []}
-                        margin={{
-                          top: 5,
-                          right: 30,
-                          left: 20,
-                          bottom: 5,
-                        }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis 
-                          dataKey="date" 
-                          tick={{ fontSize: 12 }}
-                          tickFormatter={(value) => {
-                            const date = new Date(value);
-                            return `${date.getMonth() + 1}/${date.getDate()}`;
+                {/* Traffic Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  {/* Page Views Chart */}
+                  <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                      <Eye className="h-5 w-5 mr-2" />
+                      Page Views - Last 30 Days
+                    </h3>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={analytics.dailyTrafficData || []}
+                          margin={{
+                            top: 5,
+                            right: 30,
+                            left: 20,
+                            bottom: 5,
                           }}
-                        />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip 
-                          labelFormatter={(value) => {
-                            const date = new Date(value);
-                            return date.toLocaleDateString();
-                          }}
-                          formatter={(value, name) => [value, name.charAt(0).toUpperCase() + name.slice(1)]}
-                        />
-                        <Legend />
-                        <Line 
-                          type="monotone" 
-                          dataKey="visitors" 
-                          stroke="#3B82F6" 
-                          strokeWidth={2}
-                          dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                          name="Visitors"
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="sessions" 
-                          stroke="#10B981" 
-                          strokeWidth={2}
-                          dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
-                          name="Sessions"
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="pageViews" 
-                          stroke="#8B5CF6" 
-                          strokeWidth={2}
-                          dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
-                          name="Page Views"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="mt-4 grid grid-cols-3 gap-4 text-center">
-                    <div className="bg-white rounded-lg p-3">
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-gray-700">Visitors</span>
-                      </div>
-                      <p className="text-lg font-bold text-gray-900 mt-1">
-                        {analytics.dailyTrafficData?.reduce((sum, day) => sum + day.visitors, 0) || 0}
-                      </p>
-                      <p className="text-xs text-gray-500">Total this month</p>
+                        >
+                          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                          <XAxis 
+                            dataKey="date" 
+                            tick={{ fontSize: 12 }}
+                            tickFormatter={(value) => {
+                              const date = new Date(value);
+                              return `${date.getMonth() + 1}/${date.getDate()}`;
+                            }}
+                          />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip 
+                            labelFormatter={(value) => {
+                              const date = new Date(value);
+                              return date.toLocaleDateString();
+                            }}
+                            formatter={(value, name) => [value, 'Page Views']}
+                          />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="pageViews" 
+                            stroke="#8B5CF6" 
+                            strokeWidth={3}
+                            dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 5 }}
+                            name="Page Views"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
                     </div>
-                    <div className="bg-white rounded-lg p-3">
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-gray-700">Sessions</span>
-                      </div>
-                      <p className="text-lg font-bold text-gray-900 mt-1">
-                        {analytics.dailyTrafficData?.reduce((sum, day) => sum + day.sessions, 0) || 0}
-                      </p>
-                      <p className="text-xs text-gray-500">Total this month</p>
-                    </div>
-                    <div className="bg-white rounded-lg p-3">
+                    <div className="mt-4 bg-white rounded-lg p-3 text-center">
                       <div className="flex items-center justify-center space-x-2">
                         <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-gray-700">Page Views</span>
+                        <span className="text-sm font-medium text-gray-700">Total Page Views</span>
                       </div>
-                      <p className="text-lg font-bold text-gray-900 mt-1">
+                      <p className="text-2xl font-bold text-gray-900 mt-1">
                         {analytics.dailyTrafficData?.reduce((sum, day) => sum + day.pageViews, 0) || 0}
                       </p>
-                      <p className="text-xs text-gray-500">Total this month</p>
+                      <p className="text-xs text-gray-500">Last 30 days</p>
+                    </div>
+                  </div>
+
+                  {/* Sessions & Visitors Chart */}
+                  <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                      <TrendingUp className="h-5 w-5 mr-2" />
+                      Sessions & Visitors - Last 30 Days
+                    </h3>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={analytics.dailyTrafficData || []}
+                          margin={{
+                            top: 5,
+                            right: 30,
+                            left: 20,
+                            bottom: 5,
+                          }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                          <XAxis 
+                            dataKey="date" 
+                            tick={{ fontSize: 12 }}
+                            tickFormatter={(value) => {
+                              const date = new Date(value);
+                              return `${date.getMonth() + 1}/${date.getDate()}`;
+                            }}
+                          />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip 
+                            labelFormatter={(value) => {
+                              const date = new Date(value);
+                              return date.toLocaleDateString();
+                            }}
+                            formatter={(value, name) => [value, name.charAt(0).toUpperCase() + name.slice(1)]}
+                          />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="visitors" 
+                            stroke="#3B82F6" 
+                            strokeWidth={3}
+                            dot={{ fill: '#3B82F6', strokeWidth: 2, r: 5 }}
+                            name="Visitors"
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="sessions" 
+                            stroke="#10B981" 
+                            strokeWidth={3}
+                            dot={{ fill: '#10B981', strokeWidth: 2, r: 5 }}
+                            name="Sessions"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div className="bg-white rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-gray-700">Visitors</span>
+                        </div>
+                        <p className="text-xl font-bold text-gray-900 mt-1">
+                          {analytics.dailyTrafficData?.reduce((sum, day) => sum + day.visitors, 0) || 0}
+                        </p>
+                        <p className="text-xs text-gray-500">Total this month</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-gray-700">Sessions</span>
+                        </div>
+                        <p className="text-xl font-bold text-gray-900 mt-1">
+                          {analytics.dailyTrafficData?.reduce((sum, day) => sum + day.sessions, 0) || 0}
+                        </p>
+                        <p className="text-xs text-gray-500">Total this month</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  {/* Browser Statistics */}
+                {/* Geographic Analytics - Priority Display */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-6 mb-6">
+                  <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                    <Globe className="h-6 w-6 mr-3 text-blue-600" />
+                    Geographic Distribution
+                    <span className="ml-2 text-sm font-normal text-gray-600">
+                      ({Object.values(analytics.countryStats).reduce((sum, count) => sum + count, 0)} total visitors)
+                    </span>
+                  </h3>
+                  
+                  {Object.keys(analytics.countryStats).length > 0 ? (
+                    <div className="space-y-4">
+                      {Object.entries(analytics.countryStats)
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([country, count], index) => {
+                          const totalVisitors = Object.values(analytics.countryStats).reduce((sum, c) => sum + c, 0);
+                          const percentage = ((count / totalVisitors) * 100).toFixed(1);
+                          const isTop = index < 3;
+                          
+                          return (
+                            <div key={country} className="relative">
+                              <div className={`flex items-center justify-between p-4 rounded-lg transition-all ${
+                                isTop 
+                                  ? 'bg-white shadow-md border-l-4 border-blue-500' 
+                                  : 'bg-white/70 border border-gray-200'
+                              }`}>
+                                <div className="flex items-center space-x-4">
+                                  <div className={`w-3 h-3 rounded-full ${
+                                    index === 0 ? 'bg-blue-500' :
+                                    index === 1 ? 'bg-blue-400' :
+                                    index === 2 ? 'bg-blue-300' : 'bg-gray-300'
+                                  }`}></div>
+                                  <div>
+                                    <span className={`font-semibold ${isTop ? 'text-gray-900' : 'text-gray-700'}`}>
+                                      {country}
+                                    </span>
+                                    {isTop && (
+                                      <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                        #{index + 1}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                  <div className="text-right">
+                                    <div className={`font-bold ${isTop ? 'text-lg text-gray-900' : 'text-gray-800'}`}>
+                                      {count}
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                      {percentage}%
+                                    </div>
+                                  </div>
+                                  <div className="w-20 bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className={`h-2 rounded-full ${
+                                        index === 0 ? 'bg-blue-500' :
+                                        index === 1 ? 'bg-blue-400' :
+                                        index === 2 ? 'bg-blue-300' : 'bg-gray-400'
+                                      }`}
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Globe className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                      <p className="text-gray-500">No geographic data available yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Data will appear as visitors access your site</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                  {/* Operating System Statistics */}
                   <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                       <Monitor className="h-5 w-5 mr-2" />
-                      Browser Analytics
+                      Operating Systems
                     </h3>
                     <div className="space-y-3">
-                      {Object.entries(analytics.browserStats).map(([browser, count]) => (
-                        <div key={browser} className="flex justify-between items-center">
-                          <span className="text-gray-700">{browser}</span>
-                          <span className="font-semibold text-gray-900">{count}</span>
-                        </div>
-                      ))}
+                      {Object.entries(analytics.osStats || {})
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([os, count]) => {
+                          const totalOS = Object.values(analytics.osStats || {}).reduce((sum, c) => sum + c, 0);
+                          const percentage = totalOS > 0 ? ((count / totalOS) * 100).toFixed(1) : 0;
+                          
+                          return (
+                            <div key={os} className="flex justify-between items-center p-2 rounded-md hover:bg-gray-100">
+                              <span className="text-gray-700 flex items-center">
+                                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                {os}
+                              </span>
+                              <div className="text-right">
+                                <span className="font-semibold text-gray-900">{count}</span>
+                                <span className="text-xs text-gray-500 ml-1">({percentage}%)</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      {Object.keys(analytics.osStats || {}).length === 0 && (
+                        <p className="text-gray-500 text-center py-4">No OS data available</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Browser Statistics */}
+                  <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                      <Globe className="h-5 w-5 mr-2" />
+                      Browsers
+                    </h3>
+                    <div className="space-y-3">
+                      {Object.entries(analytics.browserStats)
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([browser, count]) => {
+                          const totalBrowsers = Object.values(analytics.browserStats).reduce((sum, c) => sum + c, 0);
+                          const percentage = totalBrowsers > 0 ? ((count / totalBrowsers) * 100).toFixed(1) : 0;
+                          
+                          return (
+                            <div key={browser} className="flex justify-between items-center p-2 rounded-md hover:bg-gray-100">
+                              <span className="text-gray-700 flex items-center">
+                                <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                                {browser}
+                              </span>
+                              <div className="text-right">
+                                <span className="font-semibold text-gray-900">{count}</span>
+                                <span className="text-xs text-gray-500 ml-1">({percentage}%)</span>
+                              </div>
+                            </div>
+                          );
+                        })}
                       {Object.keys(analytics.browserStats).length === 0 && (
-                        <p className="text-gray-500">No browser data available</p>
+                        <p className="text-gray-500 text-center py-4">No browser data available</p>
                       )}
                     </div>
                   </div>
@@ -436,38 +603,32 @@ const SiteDetails = () => {
                   <div className="bg-gray-50 rounded-lg shadow-sm border p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                       <Smartphone className="h-5 w-5 mr-2" />
-                      Device Analytics
+                      Devices
                     </h3>
                     <div className="space-y-3">
-                      {Object.entries(analytics.deviceStats).map(([device, count]) => (
-                        <div key={device} className="flex justify-between items-center">
-                          <span className="text-gray-700">{device}</span>
-                          <span className="font-semibold text-gray-900">{count}</span>
-                        </div>
-                      ))}
+                      {Object.entries(analytics.deviceStats)
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([device, count]) => {
+                          const totalDevices = Object.values(analytics.deviceStats).reduce((sum, c) => sum + c, 0);
+                          const percentage = totalDevices > 0 ? ((count / totalDevices) * 100).toFixed(1) : 0;
+                          
+                          return (
+                            <div key={device} className="flex justify-between items-center p-2 rounded-md hover:bg-gray-100">
+                              <span className="text-gray-700 flex items-center">
+                                <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                                {device}
+                              </span>
+                              <div className="text-right">
+                                <span className="font-semibold text-gray-900">{count}</span>
+                                <span className="text-xs text-gray-500 ml-1">({percentage}%)</span>
+                              </div>
+                            </div>
+                          );
+                        })}
                       {Object.keys(analytics.deviceStats).length === 0 && (
-                        <p className="text-gray-500">No device data available</p>
+                        <p className="text-gray-500 text-center py-4">No device data available</p>
                       )}
                     </div>
-                  </div>
-                </div>
-
-                {/* Country Analytics */}
-                <div className="bg-gray-50 rounded-lg shadow-sm border p-6 mb-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <Globe className="h-5 w-5 mr-2" />
-                    Geographic Analytics
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Object.entries(analytics.countryStats).map(([country, count]) => (
-                      <div key={country} className="flex justify-between items-center p-3 bg-white rounded-lg">
-                        <span className="text-gray-700">{country}</span>
-                        <span className="font-semibold text-gray-900">{count} visitors</span>
-                      </div>
-                    ))}
-                    {Object.keys(analytics.countryStats).length === 0 && (
-                      <p className="text-gray-500 col-span-full">No geographic data available</p>
-                    )}
                   </div>
                 </div>
 
