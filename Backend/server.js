@@ -196,6 +196,68 @@ async function getOrCreateSession(sessionId, uniqueUserId, siteId, timestamp, me
 }
 
 
+
+app.post('/api/user-system-info', async (req, res) => {
+    // const systemData = {
+    //     siteId: siteId,
+    //     sessionId: sessionId,
+    //     uniqueUserId: this.userId,
+    //     browser: browser,
+    //     operatingSystem: os,
+    //     userAgent: userAgent,
+    //     screenInfo: screenInfo,
+    //     timezone: timezone,
+    //     language: language,
+    //     location: location,
+    //     timestamp: Date.now()
+    //   };
+    //complete for these systemData\
+
+    try{
+       const { siteId, sessionId, uniqueUserId, browser, operatingSystem, userAgent, screenInfo, timezone, language, location } = req.body;
+    console.log('🖥️ User system information:', {
+      siteId,
+      sessionId,
+      uniqueUserId,
+      browser,
+      operatingSystem,
+      userAgent,
+      screenInfo,
+      timezone,
+      language,
+      location
+    });
+
+    if (!siteId || !sessionId || !uniqueUserId) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const systemData = {
+      siteId: siteId,
+      sessionId: sessionId,
+      uniqueUserId: uniqueUserId,
+      browser: browser,
+      operatingSystem: operatingSystem,
+      userAgent: userAgent,
+      screenInfo: screenInfo,
+      timezone: timezone,
+      language: language,
+      location: location,
+      timestamp: Date.now()
+    };
+
+    res.status(200).json({
+      message: 'User system information fetched successfully',
+      data: systemData
+    });
+
+  } catch (error) {
+    console.error('❌ User system info error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
 app.post('/api/pageviews', async (req, res) => {
   try {
     const { 
