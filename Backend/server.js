@@ -766,24 +766,110 @@ app.post('/api/user-detail-informations',async(req,res)=>{
   try{
     console.log("👤 Received user detail information:", req.body);
 
+    const { 
+      siteId, 
+      sessionId, 
+      uniqueUserId, 
+      buttonClicked, 
+      fullName, 
+      businessEmail, 
+      company, 
+      mobile, 
+      timestamp 
+    } = req.body;
 
-    //fetch data according this format
-    /*Received user detail information: {
-      siteId: '429d4183-eaba-4698-8475-3e8d5e7da1a3',
-      sessionId: 'session_fc1bf97a-b4ce-4b8e-b49c-a91dc5978c3f',
-      uniqueUserId: 'user_7a6286fc-95c6-4208-b09f-b8ec69b1265a',
-      buttonClicked: 'Be an Early Bird',
-      fullName: 'alvee',
-      businessEmail: 'alveeadian@gmail.com',
-      company: 'sociofy',
-      mobile: '(454) 35',
-      timestamp: 1755977988332
-    }*/
+    // Validate required fields
+    if (!uniqueUserId || !fullName || !businessEmail) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: uniqueUserId, fullName, and businessEmail are required' 
+      });
+    }
 
-  }
-  catch{
-    console.error('Error fetching user detail information:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    // Clean the user ID (remove 'user_' prefix if present)
+    const cleanUserId = sanitizeUserId(uniqueUserId);
+    const cleanSessionId = sessionId ? sanitizeSessionId(sessionId) : null;
+
+    console.log(`🔍 Updating visitor details for UID: ${cleanUserId}`);
+
+    // Update the visitor record with lead information
+    const { data: updatedVisitor, error: updateError } = await supabase
+      .from('visitors')
+      .update({
+        lead_status: 'captured',
+        lead_name: fullName,
+        lead_email: businessEmail,
+        lead_phone: mobile || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('uid', cleanUserId)
+      .select();
+
+    if (updateError) {
+      console.error('❌ Error updating visitor with lead details:', updateError);
+      return res.status(500).json({ 
+        message: 'Failed to update visitor details', 
+        error: updateError.message 
+      });
+    }
+
+    if (!updatedVisitor || updatedVisitor.length === 0) {
+      console.warn(`⚠️ No visitor found with UID: ${cleanUserId}`);
+      return res.status(404).json({ 
+        message: 'Visitor not found', 
+        uid: cleanUserId 
+      });
+    }
+
+    // Log the button click event
+    if (cleanSessionId && buttonClicked) {
+      const eventData = {
+        uid: cleanUserId,
+        session_id: cleanSessionId,
+        site_id: siteId,
+        event_type: 'lead_capture',
+        event_name: 'form_submission',
+        element_id: null,
+        element_class: null,
+        properties: {
+          button_clicked: buttonClicked,
+          company: company || null,
+          form_type: 'lead_capture',
+          timestamp: timestamp
+        },
+        event_timestamp: new Date().toISOString()
+      };
+
+      const { error: eventError } = await supabase
+        .from('events')
+        .insert(eventData);
+
+      if (eventError) {
+        console.error('❌ Error logging lead capture event:', eventError);
+        // Don't fail the request if event logging fails
+      } else {
+        console.log('✅ Lead capture event logged successfully');
+      }
+    }
+
+    console.log('✅ Visitor details updated successfully:', {
+      uid: cleanUserId,
+      name: fullName,
+      email: businessEmail,
+      status: 'captured'
+    });
+
+    res.status(200).json({ 
+      message: 'User details updated successfully',
+      visitor: updatedVisitor[0],
+      leadCaptured: true
+    });
+
+  } catch(error) {
+    console.error('❌ Error processing user detail information:', error);
+    res.status(500).json({ 
+      message: 'Internal server error', 
+      error: error.message 
+    });
   }
 })
 
@@ -1528,6 +1614,7 @@ app.get('/api/sites/:siteId/visitors', authenticateToken, async (req, res) => {
       .in('uid', visitorUids)
       .eq('site_id', siteId);
 
+    //TODO: refactor lead calc
     // Calculate lead score for each visitor
     const visitorsWithScores = visitorsData?.map(visitor => {
       const visitorEvents = eventsData?.filter(event => event.uid === visitor.uid) || [];
