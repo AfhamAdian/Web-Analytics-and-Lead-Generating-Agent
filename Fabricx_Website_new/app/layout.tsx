@@ -135,29 +135,6 @@ const theme = createTheme({
   },
 });
 
-// export default function RootLayout({
-//   children,
-// }: Readonly<{
-//   children: React.ReactNode;
-// }>) {
-//   return (
-//     <ThemeProvider theme={theme} applyTheme="replace">
-//       {" "}
-//       <html
-//         lang="en"
-//         className={`${plusJakartaSans.variable} ${chillax.variable} antialiased relative`}
-//       >
-//         {/* <ChatProvider> */}
-//           <body className="font-sans min-w-screen">
-//           <Header />
-//           {children}
-//           <Footer />
-//         </body>
-//         {/* </ChatProvider> */}
-//       </html>
-//     </ThemeProvider>
-//   );
-// }
 
 
 export default function RootLayout({
@@ -180,7 +157,7 @@ export default function RootLayout({
           {/* Tracking script injection */}
           <Script
             src="http://localhost:8080/track.js"
-            site-id="429d4183-eaba-4698-8475-3e8d5e7da1a3"
+            site-id="33966cba-5ec5-4c69-9079-c020ec5c5971"
             strategy="afterInteractive"
             async
           />

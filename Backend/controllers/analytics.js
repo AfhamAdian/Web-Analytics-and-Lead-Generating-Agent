@@ -1,5 +1,5 @@
 // Analytics Controller - Handles analytics tracking endpoints
-// Integrates visitor, session, and event management
+// Integrates visitor, session, and event //
 
 const supabase = require('../supabaseClient');
 const crypto = require('crypto');
