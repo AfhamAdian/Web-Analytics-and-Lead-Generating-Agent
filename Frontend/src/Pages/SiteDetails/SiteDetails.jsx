@@ -286,7 +286,7 @@ const SiteDetails = () => {
                       </div>
                       <div className="ml-4">
                         <p className="text-sm font-medium text-gray-600">Leads Generated</p>
-                        <p className="text-2xl font-bold text-gray-900">{analytics.analytics.leads}</p>
+                        <p className="text-2xl font-bold text-gray-900">{analytics.analytics.totalLeads}</p>
                       </div>
                     </div>
                   </div>
