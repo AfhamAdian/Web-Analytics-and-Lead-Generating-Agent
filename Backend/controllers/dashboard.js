@@ -461,6 +461,7 @@ async function handleDashboard(req, res) {
     // Get basic analytics across all sites
     let uniqueVisitors = 0;
     let totalLeads = 0;
+    let totalPageViews = 0;
 
     if (siteIds.length > 0) {
       // Get all sessions for calculating unique visitors
@@ -487,23 +488,34 @@ async function handleDashboard(req, res) {
         .filter(visitor => visitor.lead_name);
 
       totalLeads = allLeads.length;
-    }
 
-    // Mock revenue calculation (you can implement real revenue tracking)
-    const revenue = totalLeads * 150; // $150 per lead average
+      // Get events across all sites for page view calculation
+      const eventPromises = siteIds.map(siteId => 
+        getEventsBySite(siteId)
+      );
+      const eventResults = await Promise.all(eventPromises);
+      
+      const allEvents = eventResults
+        .filter(result => result.events)
+        .flatMap(result => result.events);
+
+      totalPageViews = allEvents.filter(event => event.event_type === 'page_view').length;
+    } else {
+      totalPageViews = 0;
+    }
 
     const stats = [
       { title: 'Total Sites', value: totalSites.toString() },
       { title: 'Active Users', value: uniqueVisitors.toString() },
       { title: 'New Leads', value: totalLeads.toString() },
-      { title: 'Revenue', value: `$${revenue.toLocaleString()}` }
+      { title: 'Total Page Views', value: totalPageViews.toLocaleString() }
     ];
 
     const chartData = [
       { label: 'Sites', percentage: Math.min(totalSites * 20, 100), value: totalSites.toString(), color: 'bg-orange-500' },
       { label: 'Users', percentage: Math.min(uniqueVisitors * 2, 100), value: uniqueVisitors.toString(), color: 'bg-blue-500' },
       { label: 'Leads', percentage: Math.min(totalLeads * 5, 100), value: totalLeads.toString(), color: 'bg-green-500' },
-      { label: 'Revenue', percentage: Math.min(revenue / 100, 100), value: `$${(revenue/1000).toFixed(1)}K`, color: 'bg-purple-500' }
+      { label: 'Page Views', percentage: Math.min(totalPageViews / 50, 100), value: totalPageViews > 1000 ? `${(totalPageViews/1000).toFixed(1)}K` : totalPageViews.toString(), color: 'bg-purple-500' }
     ];
 
     res.status(200).json({
