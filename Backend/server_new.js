@@ -8,6 +8,12 @@ const cors = require('cors');
 const morgan = require('morgan');
 const config = require('./config/app');
 
+// Import route modules
+const analyticsRoutes = require('./routes/analytics');
+const leadRoutes = require('./routes/leads');
+const authRoutes = require('./routes/auth');
+const dashboardRoutes = require('./routes/dashboard');
+
 // Create Express application
 const app = express();
 
@@ -16,37 +22,11 @@ app.use(morgan('dev')); // Logging middleware
 app.use(cors(config.corsOptions)); // CORS middleware
 app.use(express.json()); // JSON parsing middleware
 
-// Load routes with error handling
-try {
-  // Analytics tracking routes
-  console.log('Loading analytics routes...');
-  const analyticsRoutes = require('./routes/analytics');
-  app.use('/api', analyticsRoutes);
-  console.log('✅ Analytics routes loaded');
-
-  // Lead capture routes  
-  console.log('Loading lead routes...');
-  const leadRoutes = require('./routes/leads');
-  app.use('/api', leadRoutes);
-  console.log('✅ Lead routes loaded');
-
-  // Authentication routes
-  console.log('Loading auth routes...');
-  const authRoutes = require('./routes/auth');
-  app.use('/api', authRoutes);
-  console.log('✅ Auth routes loaded');
-
-  // Dashboard routes
-  console.log('Loading dashboard routes...');
-  const dashboardRoutes = require('./routes/dashboard');
-  app.use('/api', dashboardRoutes);
-  console.log('✅ Dashboard routes loaded');
-
-} catch (error) {
-  console.error('❌ Error loading routes:', error.message);
-  console.error('Stack trace:', error.stack);
-  process.exit(1);
-}
+// API Routes
+app.use('/api', analyticsRoutes); // Analytics tracking routes
+app.use('/api', leadRoutes); // Lead capture routes  
+app.use('/api', authRoutes); // Authentication routes
+app.use('/api', dashboardRoutes); // Dashboard and site management routes
 
 // Health check endpoint
 app.get('/health', (req, res) => {

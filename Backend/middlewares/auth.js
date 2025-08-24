@@ -1,4 +1,10 @@
+/**
+ * Authentication Middleware
+ * Middleware for verifying JWT tokens
+ */
+
 const jwt = require('jsonwebtoken');
+const config = require('../config/app');
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -8,8 +14,7 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ message: 'Access token required' });
   }
 
-  JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, config.jwtSecret, (err, user) => {
     if (err) {
       return res.status(403).json({ message: 'Invalid or expired token' });
     }
