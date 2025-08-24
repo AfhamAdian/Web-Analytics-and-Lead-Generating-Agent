@@ -1,221 +1,280 @@
-# Backend Architecture Documentation
+# Web Analytics and Lead Generating Agent
 
-## Overview
-This backend has been modularized for better maintainability, readability, and scalability. The architecture follows a clean separation of concerns with logical grouping of functionality.
+A comprehensive full-stack web analytics platform that tracks user behavior, captures leads, and provides detailed insights through an intuitive dashboard. Built with modern technologies including Node.js, React, Next.js, and PostgreSQL.
 
-## Directory Structure
+## 🚀 Features
+
+### Analytics & Tracking
+- **Real-time User Tracking**: Monitor visitor behavior, page views, session duration, and click events
+- **Lead Scoring**: Intelligent lead qualification based on user interaction patterns
+- **Session Management**: Track user sessions with detailed browser, OS, and device information
+- **Event Tracking**: Comprehensive event system for clicks, form submissions, page views, and custom events
+- **Geolocation Tracking**: Regional and country-based visitor analytics
+
+### Dashboard & Reporting
+- **Interactive Dashboard**: Real-time analytics with charts and metrics
+- **Multi-site Management**: Manage multiple websites from a single dashboard
+- **Lead Management**: Capture, track, and qualify leads with detailed information
+- **Performance Metrics**: Traffic analysis, conversion rates, and user engagement metrics
+
+### Technical Features
+- **JWT Authentication**: Secure user authentication and authorization
+- **RESTful API**: Well-structured API endpoints for all operations
+- **Database Integration**: PostgreSQL with Supabase for scalable data management
+- **Responsive Design**: Mobile-first design with TailwindCSS
+- **TypeScript Support**: Type-safe development with TypeScript
+
+## 🏗️ Project Structure
 
 ```
-Backend/
-├── config/              # Configuration files
-│   ├── app.js           # Application configuration
-│   └── database.js      # Database connection setup
-├── controllers/         # Business logic handlers
-│   ├── analyticsController.js    # Analytics tracking logic
-│   ├── authController.js         # Authentication logic
-│   ├── dashboardController.js    # Dashboard and site management logic
-│   └── leadController.js         # Lead capture logic
-├── middlewares/         # Express middlewares
-│   └── auth.js          # JWT authentication middleware
-├── routes/              # API route definitions
-│   ├── analytics.js     # Analytics tracking routes
-│   ├── auth.js          # Authentication routes
-│   ├── dashboard.js     # Dashboard routes
-│   └── leads.js         # Lead capture routes
-├── services/            # Data access layer
-│   ├── eventService.js    # Event-related database operations
-│   ├── sessionService.js  # Session-related database operations
-│   ├── siteService.js     # Site-related database operations
-│   ├── userService.js     # User-related database operations
-│   └── visitorService.js  # Visitor-related database operations
-├── utils/               # Utility functions
-│   ├── analyticsUtils.js  # Analytics calculation utilities
-│   └── idUtils.js         # ID sanitization and validation utilities
-├── server.js            # Main application entry point
-├── server_original.js   # Backup of original monolithic server
-└── supabaseClient.js    # Legacy client (for backward compatibility)
+Web-Analytics-and-Lead-Generating-Agent/
+├── Backend/                 # Node.js Express API Server
+│   ├── controllers/         # Business logic handlers
+│   ├── routes/             # API route definitions
+│   ├── services/           # Data access layer
+│   ├── middlewares/        # Express middlewares
+│   ├── utils/              # Utility functions
+│   ├── config.js           # Application configuration
+│   ├── server.js           # Main server entry point
+│   └── supabaseClient.js   # Database client setup
+├── Frontend/               # React Dashboard Application
+│   ├── src/                # React source code
+│   ├── public/             # Static assets
+│   └── package.json        # Frontend dependencies
+├── Fabricx_Website_new/    # Next.js Sample Website with Analytics
+│   ├── app/                # Next.js app directory
+│   ├── components/         # React components
+│   ├── lib/                # Utility libraries
+│   └── public/             # Static assets
+├── schema.sql              # Database schema
+└── package.json            # Root project configuration
 ```
 
-## Architecture Layers
+## 🛠️ Technology Stack
 
-### 1. Configuration Layer (`config/`)
-- **`app.js`**: Central application configuration (CORS, JWT, environment settings)
-- **`database.js`**: Database connection and Supabase client setup
+### Backend
+- **Node.js** - JavaScript runtime environment
+- **Express.js** - Web application framework
+- **PostgreSQL** - Primary database
+- **Supabase** - Database hosting and management
+- **JWT** - Authentication and authorization
+- **bcryptjs** - Password hashing
+- **CORS** - Cross-origin resource sharing
 
-### 2. Routes Layer (`routes/`)
-- **Purpose**: Define API endpoints and map them to controllers
-- **Responsibility**: HTTP routing, basic request validation
-- **Files**:
-  - `analytics.js`: Analytics tracking endpoints
-  - `auth.js`: Authentication endpoints  
-  - `dashboard.js`: Dashboard and site management endpoints
-  - `leads.js`: Lead capture endpoints
+### Frontend (Dashboard)
+- **React 18** - User interface library
+- **React Router** - Client-side routing
+- **Axios** - HTTP client for API calls
+- **Recharts** - Data visualization and charts
+- **TailwindCSS** - Utility-first CSS framework
+- **Lucide React** - Icon library
 
-### 3. Controllers Layer (`controllers/`)
-- **Purpose**: Handle business logic and coordinate between services
-- **Responsibility**: Request/response handling, data validation, error handling
-- **Files**:
-  - `analyticsController.js`: Analytics tracking logic
-  - `authController.js`: User authentication logic
-  - `dashboardController.js`: Dashboard data aggregation and site management
-  - `leadController.js`: Lead capture and form submission logic
+### Sample Website (Fabricx)
+- **Next.js 15** - React framework with SSR/SSG
+- **TypeScript** - Type-safe JavaScript
+- **TailwindCSS 4** - Latest utility-first CSS
+- **Flowbite React** - UI component library
+- **Radix UI** - Accessible component primitives
 
-### 4. Services Layer (`services/`)
-- **Purpose**: Data access and business operations
-- **Responsibility**: Database operations, external API calls, data transformation
-- **Files**:
-  - `eventService.js`: Event creation and retrieval
-  - `sessionService.js`: Session management
-  - `siteService.js`: Site CRUD operations
-  - `userService.js`: User management and authentication
-  - `visitorService.js`: Visitor tracking and lead management
+## 📋 Prerequisites
 
-### 5. Utilities Layer (`utils/`)
-- **Purpose**: Reusable helper functions
-- **Responsibility**: Data processing, calculations, validations
-- **Files**:
-  - `analyticsUtils.js`: Lead scoring, traffic analysis, statistics calculation
-  - `idUtils.js`: UUID sanitization, timezone parsing
+- **Node.js** (v16 or higher)
+- **npm** or **yarn**
+- **PostgreSQL** database
+- **Supabase** account (or local PostgreSQL setup)
 
-### 6. Middlewares Layer (`middlewares/`)
-- **Purpose**: Request processing and validation
-- **Files**:
-  - `auth.js`: JWT token verification
+## 🚀 Installation & Setup
 
-## Key Improvements
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd Web-Analytics-and-Lead-Generating-Agent
+```
 
-### 1. **Separation of Concerns**
-- Each layer has a single responsibility
-- Business logic separated from data access
-- Route handling separated from business logic
+### 2. Environment Configuration
+Create a `.env` file in the root directory:
+```env
+# Database Configuration
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_anon_key
 
-### 2. **Modularity**
-- Each module can be tested independently
-- Easy to add new features without affecting existing code
-- Reusable components across different parts of the application
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key
 
-### 3. **Maintainability**
-- Clear file organization makes it easy to locate functionality
-- Consistent naming conventions
-- Comprehensive documentation and comments
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+```
 
-### 4. **Scalability**
-- Easy to add new routes, controllers, and services
-- Database operations are centralized and can be optimized
-- Configuration is centralized and environment-aware
+### 3. Database Setup
+```bash
+# Run the SQL schema to create tables
+psql -U your_username -d your_database -f schema.sql
+```
 
-### 5. **Error Handling**
-- Consistent error handling across all layers
-- Proper HTTP status codes
-- Detailed error messages for debugging
+### 4. Backend Setup
+```bash
+cd Backend
+npm install
+npm start
+```
+The backend server will run on `http://localhost:5000`
 
-## API Endpoints
+### 5. Frontend Dashboard Setup
+```bash
+cd Frontend
+npm install
+npm start
+```
+The dashboard will run on `http://localhost:3000`
 
-### Analytics Tracking
-- `POST /api/user-system-info` - Collect user system information
-- `POST /api/pageviews` - Track page views
-- `POST /api/scroll-depth` - Track scroll behavior
-- `POST /api/sessiontime` - Track session duration
-- `POST /api/click-events` - Track click events
+### 6. Sample Website Setup (Optional)
+```bash
+cd Fabricx_Website_new
+npm install
+npm run dev
+```
+The sample website will run on `http://localhost:3000` (or next available port)
 
-### Lead Management
-- `POST /api/user-detail-informations` - Capture user details (Fabricx specific)
-- `POST /api/form-submit` - Handle form submissions
-- `POST /api/identify-visitor` - Identify and qualify visitors
+## 📊 Database Schema
+
+The application uses a PostgreSQL database with the following main tables:
+
+- **`owners`** - Website owners/users
+- **`sites`** - Tracked websites
+- **`visitors`** - Unique visitors with lead information
+- **`sessions`** - User sessions with device/browser info
+- **`events`** - All tracked events (clicks, page views, etc.)
+
+## 🔌 API Endpoints
 
 ### Authentication
-- `POST /api/signup` - User registration
-- `POST /api/login` - User login
-- `PUT /api/profile` - Update user profile
-- `PUT /api/change-password` - Change user password
-
-### Dashboard & Analytics
-- `GET /api/dashboard` - Get dashboard overview
-- `POST /api/addSite` - Add new site
-- `GET /api/sites/:siteId` - Get site analytics
-- `GET /api/sites/:siteId/visitors` - Get site visitors with lead scores
-
-## Database Services
-
-### User Service
-- User registration and authentication
-- Profile management
-- Password management
-
-### Site Service
-- Site creation and management
-- Site analytics retrieval
-- Owner verification
-
-### Visitor Service
-- Visitor tracking and identification
-- Lead capture and qualification
-- Visitor analytics
-
-### Session Service
-- Session creation and management
-- System information tracking
-- Duration tracking
-
-### Event Service
-- Event creation and tracking
-- Multiple event types (page views, clicks, forms, etc.)
-- Event analytics and reporting
-
-## Usage Examples
-
-### Adding a New Analytics Event
-1. Add event creation method to `eventService.js`
-2. Add handler method to `analyticsController.js`
-3. Add route to `analytics.js`
-4. Update utility functions if needed
-
-### Adding a New Dashboard Widget
-1. Add data retrieval logic to appropriate service
-2. Add aggregation logic to `dashboardController.js`
-3. Add route to `dashboard.js` if needed
-4. Update analytics utilities if calculations are needed
-
-## Environment Configuration
-
-The application uses centralized configuration in `config/app.js`:
-
-```javascript
-module.exports = {
-  port: process.env.PORT || 5000,
-  jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
-  jwtExpiresIn: '24h',
-  corsOptions: { /* CORS settings */ },
-  environment: process.env.NODE_ENV || 'development',
-  trackingScriptUrl: 'http://localhost:8080/track.js'
-};
+```
+POST /api/signup          # User registration
+POST /api/login           # User login
+PUT  /api/profile         # Update user profile
+PUT  /api/change-password # Change password
 ```
 
-## Migration from Original Server
+### Analytics & Tracking
+```
+POST /api/user-system-info     # Track user system information
+POST /api/pageviews            # Track page views
+POST /api/scroll-depth         # Track scroll behavior
+POST /api/sessiontime          # Track session duration
+POST /api/click-events         # Track click events
+```
 
-The original monolithic `server.js` has been:
-1. Backed up as `server_original.js`
-2. Replaced with a clean, modular version
-3. All functionality preserved and enhanced
-4. Improved error handling and logging
-5. Better organization and documentation
+### Lead Management
+```
+POST /api/user-detail-informations # Capture user details
+POST /api/form-submit              # Handle form submissions
+POST /api/identify-visitor         # Identify and qualify visitors
+```
 
-## Testing
+### Dashboard & Analytics
+```
+GET  /api/dashboard               # Dashboard overview
+POST /api/addSite                 # Add new site
+GET  /api/sites/:siteId           # Get site analytics
+GET  /api/sites/:siteId/visitors  # Get site visitors with lead scores
+```
 
-Each module can be tested independently:
-- Services can be unit tested with mocked database calls
-- Controllers can be tested with mocked services
-- Routes can be integration tested
-- Utilities can be unit tested with various inputs
+## 🎯 Usage
 
-## Future Enhancements
+### 1. Analytics Integration
+Add the tracking script to any website:
+```html
+<script 
+  src="http://localhost:8080/track.js" 
+  site-id="your-site-id"
+  async>
+</script>
+```
 
-The modular architecture makes it easy to add:
-- Rate limiting middleware
-- Input validation schemas
-- Caching layers
-- Background job processing
-- Real-time features with WebSockets
-- API versioning
-- Automated testing suites
-- Performance monitoring
+### 2. Dashboard Access
+1. Register/Login at the dashboard
+2. Add your website(s)
+3. Get the site ID and integrate the tracking script
+4. View real-time analytics and leads
+
+### 3. Lead Capture
+The system automatically captures leads when users:
+- Fill out forms
+- Spend significant time on pages
+- Interact with specific elements
+- Meet custom scoring criteria
+
+## 🏃‍♂️ Development
+
+### Project Scripts
+
+**Root Level:**
+```bash
+npm install  # Install root dependencies
+```
+
+**Backend:**
+```bash
+npm start    # Start development server with nodemon
+```
+
+**Frontend Dashboard:**
+```bash
+npm start    # Start React development server
+npm run build # Build for production
+```
+
+**Sample Website:**
+```bash
+npm run dev   # Start Next.js development server
+npm run build # Build for production
+npm start     # Start production server
+```
+
+### Architecture Overview
+
+The application follows a modular architecture:
+
+1. **Backend** - RESTful API with Express.js
+   - Controllers handle business logic
+   - Services manage data operations
+   - Routes define API endpoints
+   - Middlewares handle authentication and validation
+
+2. **Frontend Dashboard** - React SPA
+   - Components for different views
+   - Services for API communication
+   - Context for state management
+
+3. **Sample Website** - Next.js with analytics integration
+   - Demonstrates tracking implementation
+   - Shows lead capture forms
+   - Example of real-world usage
+
+## 🔒 Security Features
+
+- **JWT Authentication** - Secure token-based authentication
+- **Password Hashing** - bcrypt for secure password storage
+- **CORS Protection** - Configurable cross-origin policies
+- **Input Validation** - Data sanitization and validation
+- **SQL Injection Prevention** - Parameterized queries
+
+## 📈 Analytics Features
+
+### Metrics Tracked
+- Page views and unique visitors
+- Session duration and bounce rate
+- Click-through rates and user flow
+- Device, browser, and OS statistics
+- Geographic distribution
+- Lead conversion rates
+
+### Lead Scoring Algorithm
+The system uses an intelligent scoring algorithm based on:
+- Time spent on site
+- Pages visited
+- Form interactions
+- Download activities
+- Return visits
+- Engagement patterns
