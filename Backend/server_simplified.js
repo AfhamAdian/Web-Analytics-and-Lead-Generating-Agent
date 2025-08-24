@@ -6,27 +6,72 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const config = require('./config/app');
-
-// Import route modules
-const analyticsRoutes = require('./routes/analytics');
-const leadRoutes = require('./routes/leads');
-const authRoutes = require('./routes/auth');
-const dashboardRoutes = require('./routes/dashboard');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // Create Express application
 const app = express();
+
+// Configuration (moved from config/app.js)
+const config = {
+  // Server configuration
+  port: process.env.PORT || 5000,
+  
+  // JWT configuration
+  jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
+  jwtExpiresIn: '24h',
+  
+  // CORS configuration
+  corsOptions: {
+    origin: '*', 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false
+  },
+
+  // Environment
+  environment: process.env.NODE_ENV || 'development',
+  
+  // Frontend tracking script configuration
+  trackingScriptUrl: 'http://localhost:8080/track.js'
+};
 
 // Middleware setup
 app.use(morgan('dev')); // Logging middleware
 app.use(cors(config.corsOptions)); // CORS middleware
 app.use(express.json()); // JSON parsing middleware
 
-// API Routes
-app.use('/api', analyticsRoutes); // Analytics tracking routes
-app.use('/api', leadRoutes); // Lead capture routes  
-app.use('/api', authRoutes); // Authentication routes
-app.use('/api', dashboardRoutes); // Dashboard and site management routes
+// Load routes with error handling
+try {
+  // Analytics tracking routes
+  console.log('Loading analytics routes...');
+  const analyticsRoutes = require('./routes/analytics');
+  app.use('/api', analyticsRoutes);
+  console.log('✅ Analytics routes loaded');
+
+  // Lead capture routes  
+  console.log('Loading lead routes...');
+  const leadRoutes = require('./routes/leads');
+  app.use('/api', leadRoutes);
+  console.log('✅ Lead routes loaded');
+
+  // Authentication routes
+  console.log('Loading auth routes...');
+  const authRoutes = require('./routes/auth');
+  app.use('/api', authRoutes);
+  console.log('✅ Auth routes loaded');
+
+  // Dashboard routes
+  console.log('Loading dashboard routes...');
+  const dashboardRoutes = require('./routes/dashboard');
+  app.use('/api', dashboardRoutes);
+  console.log('✅ Dashboard routes loaded');
+
+} catch (error) {
+  console.error('❌ Error loading routes:', error.message);
+  console.error('Stack trace:', error.stack);
+  process.exit(1);
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -78,4 +123,5 @@ process.on('SIGINT', () => {
   });
 });
 
-module.exports = app;
+// Export config for use in other modules
+module.exports = { app, config };

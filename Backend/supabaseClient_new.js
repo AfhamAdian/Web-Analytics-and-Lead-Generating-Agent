@@ -1,10 +1,10 @@
 /**
- * Database Configuration
- * Manages Supabase connection and configuration
+ * Supabase Client
+ * Database connection and configuration
  */
 
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { createClient } = require('@supabase/supabase-js');
 
 // Supabase configuration from environment variables

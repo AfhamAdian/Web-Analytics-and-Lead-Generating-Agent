@@ -1,7 +1,148 @@
-// Lead Controller - Handles lead capture and form submission endpoints
+// Leads Controller - Handles lead capture and form submission endpoints
+// Integrates lead management functionality
 
-const visitorService = require('../services/visitorService');
-const eventService = require('../services/eventService');
+const supabase = require('../supabaseClient');
+const crypto = require('crypto');
+
+// ===== HELPER FUNCTIONS =====
+
+function sanitizeUserId(userId) {
+  if (userId.startsWith('user_')) {
+    return userId.substring(5);
+  }
+  
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+    return userId;
+  }
+  
+  console.warn(`Invalid userId format: ${userId}, generating new UUID`);
+  return crypto.randomUUID();
+}
+
+function sanitizeSessionId(sessionId) {
+  if (sessionId.startsWith('session_')) {
+    return sessionId.substring(8);
+  }
+  
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+    return sessionId;
+  }
+  
+  console.warn(`Invalid sessionId format: ${sessionId}, generating new UUID`);
+  return crypto.randomUUID();
+}
+
+// ===== VISITOR FUNCTIONS =====
+
+async function updateVisitorLead(userId, leadData) {
+  try {
+    const sanitizedUserId = sanitizeUserId(userId);
+    
+    const { data: updatedVisitor, error: updateError } = await supabase
+      .from('visitors')
+      .update({
+        lead_status: leadData.status || 'captured',
+        lead_name: leadData.name || null,
+        lead_email: leadData.email || null,
+        lead_phone: leadData.phone || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('uid', sanitizedUserId)
+      .select();
+
+    if (updateError) {
+      console.error('Error updating visitor with lead details:', updateError);
+      return { visitor: null, error: updateError };
+    }
+
+    return { visitor: updatedVisitor?.[0] || null, error: null };
+  } catch (error) {
+    console.error('Error in updateVisitorLead:', error);
+    return { visitor: null, error };
+  }
+}
+
+// ===== EVENT FUNCTIONS =====
+
+async function createEvent(eventData) {
+  try {
+    const {
+      uid,
+      sessionId,
+      siteId,
+      eventType,
+      eventName,
+      elementId = null,
+      elementClass = null,
+      properties = {},
+      timestamp
+    } = eventData;
+
+    const sanitizedUserId = sanitizeUserId(uid);
+    const sanitizedSessionId = sanitizeSessionId(sessionId);
+
+    const { data, error } = await supabase
+      .from('events')
+      .insert([{
+        uid: sanitizedUserId,
+        session_id: sanitizedSessionId,
+        site_id: siteId,
+        event_type: eventType,
+        event_name: eventName,
+        element_id: elementId,
+        element_class: elementClass,
+        properties: properties,
+        event_timestamp: new Date(timestamp).toISOString()
+      }])
+      .select();
+
+    if (error) {
+      console.error('Error creating event:', error);
+      return { event: null, error };
+    }
+
+    return { event: data?.[0] || null, error: null };
+  } catch (error) {
+    console.error('Error in createEvent:', error);
+    return { event: null, error };
+  }
+}
+
+async function createLeadCaptureEvent(leadData) {
+  return createEvent({
+    uid: leadData.uid,
+    sessionId: leadData.sessionId,
+    siteId: leadData.siteId,
+    eventType: 'lead_capture',
+    eventName: 'form_submission',
+    properties: {
+      button_clicked: leadData.buttonClicked,
+      company: leadData.company || null,
+      form_type: 'lead_capture',
+      timestamp: leadData.timestamp
+    },
+    timestamp: leadData.timestamp || new Date().toISOString()
+  });
+}
+
+async function createFormSubmissionEvent(formData) {
+  return createEvent({
+    uid: formData.uid,
+    sessionId: formData.sessionId,
+    siteId: formData.siteId,
+    eventType: 'form_submit',
+    eventName: formData.formName || 'form_submission',
+    properties: {
+      form_data: formData.formData,
+      form_name: formData.formName,
+      url: formData.url,
+      lead_captured: formData.leadCaptured || false
+    },
+    timestamp: formData.timestamp
+  });
+}
+
+// ===== CONTROLLER FUNCTIONS =====
 
 // Handle user detail information capture (Fabricx specific)
 async function handleUserDetailInformation(req, res) {
@@ -30,7 +171,7 @@ async function handleUserDetailInformation(req, res) {
     console.log(`🔍 Updating visitor details for UID: ${uniqueUserId}`);
 
     // Update visitor with lead information
-    const { visitor: updatedVisitor, error: updateError } = await visitorService.updateVisitorLead(
+    const { visitor: updatedVisitor, error: updateError } = await updateVisitorLead(
       uniqueUserId,
       {
         status: 'captured',
@@ -58,7 +199,7 @@ async function handleUserDetailInformation(req, res) {
 
     // Log the button click event if session ID is provided
     if (sessionId && buttonClicked) {
-      const { event: leadEvent } = await eventService.createLeadCaptureEvent({
+      const { event: leadEvent } = await createLeadCaptureEvent({
         uid: uniqueUserId,
         sessionId: sessionId,
         siteId: siteId,
@@ -125,7 +266,7 @@ async function handleFormSubmit(req, res) {
     // Update visitor with lead information if provided
     let leadCaptured = false;
     if (leadName || leadEmail || leadPhone) {
-      const { visitor: updatedVisitor } = await visitorService.updateVisitorLead(
+      const { visitor: updatedVisitor } = await updateVisitorLead(
         uniqueUserId,
         {
           status: 'lead',
@@ -141,7 +282,7 @@ async function handleFormSubmit(req, res) {
     }
 
     // Create form submission event
-    const { event, error } = await eventService.createFormSubmissionEvent({
+    const { event, error } = await createFormSubmissionEvent({
       uid: uniqueUserId,
       sessionId: sessionId,
       siteId: siteId,
@@ -192,7 +333,7 @@ async function handleIdentifyVisitor(req, res) {
     }
 
     // Update visitor with lead information
-    const { visitor: updatedVisitor, error: visitorUpdateError } = await visitorService.updateVisitorLead(
+    const { visitor: updatedVisitor, error: visitorUpdateError } = await updateVisitorLead(
       uniqueUserId,
       {
         status: leadData.status || 'identified',
@@ -208,7 +349,7 @@ async function handleIdentifyVisitor(req, res) {
     }
 
     // Create identification event
-    const { event: identifyEvent } = await eventService.createEvent({
+    const { event: identifyEvent } = await createEvent({
       uid: uniqueUserId,
       sessionId: sessionId,
       siteId: siteId,
@@ -238,5 +379,10 @@ async function handleIdentifyVisitor(req, res) {
 module.exports = {
   handleUserDetailInformation,
   handleFormSubmit,
-  handleIdentifyVisitor
+  handleIdentifyVisitor,
+  // Export service functions for use by other controllers
+  updateVisitorLead,
+  createEvent,
+  createLeadCaptureEvent,
+  createFormSubmissionEvent
 };

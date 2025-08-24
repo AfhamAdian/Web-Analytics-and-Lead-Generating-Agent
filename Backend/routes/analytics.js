@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const analyticsController = require('../controllers/analyticsController');
+const analyticsController = require('../controllers/analytics');
 
 // User system information endpoint
 router.post('/user-system-info', analyticsController.handleUserSystemInfo);

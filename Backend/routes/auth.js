@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const authController = require('../controllers/authController');
+const authController = require('../controllers/auth');
 const authenticateToken = require('../middlewares/auth');
 
 // User registration endpoint

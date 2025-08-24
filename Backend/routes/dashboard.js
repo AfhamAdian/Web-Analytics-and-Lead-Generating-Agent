@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const dashboardController = require('../controllers/dashboardController');
+const dashboardController = require('../controllers/dashboard');
 const authenticateToken = require('../middlewares/auth');
 
 // Dashboard data endpoint (protected)

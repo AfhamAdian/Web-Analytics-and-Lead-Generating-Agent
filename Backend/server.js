@@ -6,7 +6,7 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const config = require('./config/app');
+const config = require('./config');
 
 // Create Express application
 const app = express();
@@ -98,4 +98,5 @@ process.on('SIGINT', () => {
   });
 });
 
-module.exports = app;
+// Export config for use in other modules
+module.exports = { app, config };

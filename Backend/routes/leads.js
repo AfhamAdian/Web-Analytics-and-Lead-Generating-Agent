@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const leadController = require('../controllers/leadController');
+const leadController = require('../controllers/leads');
 
 // User detail information capture (Fabricx specific)
 router.post('/user-detail-informations', leadController.handleUserDetailInformation);
