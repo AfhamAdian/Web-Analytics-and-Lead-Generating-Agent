@@ -7,6 +7,9 @@ const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analytics');
 
+// Session creation endpoint for rrweb integration
+router.post('/session', analyticsController.handleSessionCreation);
+
 // User system information endpoint
 router.post('/user-system-info', analyticsController.handleUserSystemInfo);
 

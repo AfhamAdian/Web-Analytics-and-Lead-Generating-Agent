@@ -404,6 +404,83 @@ async function createSystemInfoEvent(systemData) {
 
 // ===== CONTROLLER FUNCTIONS =====
 
+// Handle session creation for rrweb recording integration
+async function handleSessionCreation(req, res) {
+  try {
+    console.log('🎬 Creating session for rrweb recording:', req.body);
+
+    const { siteId, sessionId, uniqueUserId, url, userAgent, timestamp } = req.body;
+
+    if (!siteId || !sessionId || !uniqueUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: siteId, sessionId, uniqueUserId'
+      });
+    }
+
+    // Create or get visitor first
+    const { visitor, error: visitorError } = await getOrCreateVisitor(
+      uniqueUserId,
+      timestamp || Date.now(),
+      {
+        userAgent: userAgent || req.headers['user-agent'],
+        url: url || req.headers.referer
+      }
+    );
+
+    if (visitorError) {
+      console.error('Error creating/getting visitor:', visitorError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create visitor',
+        error: visitorError.message
+      });
+    }
+
+    // Create session
+    const { session, error: sessionError, isNew } = await getOrCreateSession(
+      sessionId,
+      uniqueUserId,
+      siteId,
+      timestamp || Date.now(),
+      {
+        userAgent: userAgent || req.headers['user-agent'],
+        landingPage: url || req.headers.referer
+      }
+    );
+
+    if (sessionError) {
+      console.error('Error creating session:', sessionError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create session',
+        error: sessionError.message
+      });
+    }
+
+    console.log(`✅ Session ${isNew ? 'created' : 'retrieved'} successfully:`, session.session_id);
+
+    res.json({
+      success: true,
+      message: `Session ${isNew ? 'created' : 'retrieved'} successfully`,
+      data: {
+        sessionId: session.session_id,
+        visitorId: visitor.uid,
+        isNewSession: isNew,
+        isNewVisitor: visitorError ? false : true
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in handleSessionCreation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+}
+
 // Handle user system information collection
 async function handleUserSystemInfo(req, res) {
   try {
@@ -430,8 +507,30 @@ async function handleUserSystemInfo(req, res) {
       });
     }
 
+    // Create or get session first, then update with system information
+    const { session, error: sessionError, isNew } = await getOrCreateSession(
+      sessionId,
+      uniqueUserId,
+      siteId,
+      Date.now(),
+      {
+        userAgent: userAgent || null,
+        landingPage: req.headers.referer || null
+      }
+    );
+
+    if (sessionError) {
+      console.error('❌ Error creating/getting session:', sessionError);
+      return res.status(500).json({ 
+        message: 'Failed to create session',
+        error: sessionError.message 
+      });  
+    }
+
+    console.log(`✅ Session ${isNew ? 'created' : 'found'} for system info:`, sessionId);
+
     // Update session with system information
-    const { session: updatedSession, error: sessionError } = await updateSessionSystemInfo(
+    const { session: updatedSession, error: updateError } = await updateSessionSystemInfo(
       sessionId,
       {
         browser: browser || null,
@@ -440,12 +539,9 @@ async function handleUserSystemInfo(req, res) {
       }
     );
 
-    if (sessionError && sessionError.code !== 'PGRST116') {
-      console.error('❌ Error updating session:', sessionError);
-      return res.status(500).json({ 
-        message: 'Failed to update session with system information',
-        error: sessionError.message 
-      });
+    if (updateError) {
+      console.warn('⚠️ Warning: Could not update session with system info:', updateError.message);
+      // Don't fail the request, continue with visitor updates
     }
 
     // Parse location from timezone and update visitor
@@ -709,6 +805,7 @@ async function handleClickEvents(req, res) {
 }
 
 module.exports = {
+  handleSessionCreation,
   handleUserSystemInfo,
   handlePageViews,
   handleScrollDepth,

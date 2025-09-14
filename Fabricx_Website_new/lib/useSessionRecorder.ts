@@ -43,11 +43,27 @@ export const useSessionRecorder = () => {
   const eventsRef = useRef<RRWebEvent[]>([]);
   const sessionStartTime = useRef<number>(0);
 
-  // Generate unique session ID
+  // Generate unique session ID compatible with your analytics system
   const generateSessionId = useCallback(() => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const random = Math.random().toString(36).substr(2, 9);
-    return `session-${timestamp}-${random}`;
+    // Check if there's already a session ID from your existing tracking script
+    const existingSessionId = localStorage.getItem('sessionId') || sessionStorage.getItem('sessionId');
+    if (existingSessionId) {
+      console.log('🔗 Using existing session ID from tracking script:', existingSessionId);
+      return existingSessionId;
+    }
+    
+    // Generate UUID without crypto dependency for client-side
+    const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+    const newSessionId = `session_${uuid}`;
+    
+    // Store it for other tracking to use
+    sessionStorage.setItem('sessionId', newSessionId);
+    
+    return newSessionId;
   }, []);
 
   // Save session to server/local storage
@@ -96,6 +112,53 @@ export const useSessionRecorder = () => {
     }
   }, []);
 
+  // Create analytics session when rrweb recording starts
+  const createAnalyticsSession = useCallback(async (sessionId: string) => {
+    try {
+      // Get or create uniqueUserId
+      let uniqueUserId = localStorage.getItem('uniqueUserId');
+      if (!uniqueUserId) {
+        const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+        uniqueUserId = `user_${uuid}`;
+        localStorage.setItem('uniqueUserId', uniqueUserId);
+      }
+
+      // Get or create the tracking session in your analytics backend
+      const response = await fetch('http://localhost:5000/api/analytics/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          siteId: '33966cba-5ec5-4c69-9079-c020ec5c5971', // Your site ID
+          sessionId: sessionId,
+          uniqueUserId: uniqueUserId,
+          url: window.location.href,
+          userAgent: navigator.userAgent,
+          timestamp: Date.now()
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Analytics session created for:', sessionId, result);
+        
+        // Store session info for other tracking scripts to use
+        sessionStorage.setItem('analyticsSessionCreated', 'true');
+        sessionStorage.setItem('sessionId', sessionId);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Failed to create analytics session:', response.status, response.statusText, errorText);
+      }
+    } catch (error) {
+      console.warn('Error creating analytics session:', error);
+    }
+  }, []);
+
   // Start recording session
   const startRecording = useCallback(async () => {
     if (isRecording || typeof window === 'undefined') return;
@@ -106,9 +169,15 @@ export const useSessionRecorder = () => {
       return;
     }
 
+    // Wait a bit for the tracking script to initialize and create a session
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     const newSessionId = generateSessionId();
     setSessionId(newSessionId);
     sessionStartTime.current = Date.now();
+    
+    console.log('🎬 Starting rrweb recording with session ID:', newSessionId);
+    console.log('🔗 Session should already exist from tracking script - no need to create it again');
     
     eventsRef.current = [];
     setEvents([]);
