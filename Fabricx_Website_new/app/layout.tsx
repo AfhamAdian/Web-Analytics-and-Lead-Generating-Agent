@@ -6,6 +6,8 @@ import "./globals.css";
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import SessionManager from "@/components/SessionManager";
+import ButtonClickTracker from "@/components/ButtonClickTracker";
 import { createTheme, ThemeProvider } from "flowbite-react";
 // import { ChatProvider } from "@/lib/chat-context";
 
@@ -153,6 +155,16 @@ export default function RootLayout({
           <Header />
           {children}
           <Footer />
+
+          {/* Session Recording Manager */}
+          <SessionManager 
+            autoStart={false}
+            trackButtonClicks={true}
+            debugMode={process.env.NODE_ENV === 'development'}
+          />
+
+          {/* Enhanced Button Click Tracker */}
+          <ButtonClickTracker />
 
           {/* Tracking script injection */}
           <Script
