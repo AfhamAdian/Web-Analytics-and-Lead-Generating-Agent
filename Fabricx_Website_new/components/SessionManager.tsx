@@ -23,7 +23,8 @@ const SessionManager = ({
     sessionId, 
     startRecording, 
     stopRecording, 
-    eventCount 
+    eventCount,
+    manualSave
   } = useSessionRecorder();
   
   const [isMounted, setIsMounted] = useState(false);
@@ -164,6 +165,24 @@ const SessionManager = ({
         <div>Last Activity: {Math.round((Date.now() - lastActivityRef.current) / 1000)}s ago</div>
         {!isRecording && !hasStartedRef.current && (
           <div style={{ color: '#fbbf24', marginTop: '4px' }}>👆 Click any button to start recording</div>
+        )}
+        {isRecording && (
+          <div style={{ marginTop: '8px' }}>
+            <button
+              onClick={manualSave}
+              style={{
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                cursor: 'pointer'
+              }}
+            >
+              💾 Manual Save
+            </button>
+          </div>
         )}
       </div>
     );

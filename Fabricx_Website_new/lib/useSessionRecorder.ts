@@ -66,25 +66,51 @@ export const useSessionRecorder = () => {
     return newSessionId;
   }, []);
 
-  // Save session to server/local storage
+  // Save session to backend
   const saveSession = useCallback(async (sessionEvents: RRWebEvent[], sessionIdToSave: string) => {
     if (sessionEvents.length === 0) return;
 
+    // Limit the number of events to prevent payload size issues
+    const maxEvents = 1000; // Limit to 1000 events
+    const eventsToSend = sessionEvents.length > maxEvents 
+      ? sessionEvents.slice(-maxEvents) // Take the last 1000 events
+      : sessionEvents;
+
+    console.log(`📊 Preparing to send ${eventsToSend.length} events (${sessionEvents.length} total recorded)`);
+
     const sessionData = {
       sessionId: sessionIdToSave,
-      events: sessionEvents,
+      events: eventsToSend,
+      originalEventCount: sessionEvents.length,
+      eventCount: eventsToSend.length,
       startTime: sessionStartTime.current,
       endTime: Date.now(),
       duration: Date.now() - sessionStartTime.current,
-      eventCount: sessionEvents.length,
       userAgent: navigator.userAgent,
       url: window.location.href,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      truncated: sessionEvents.length > maxEvents
     };
 
     try {
-      // Try to save to server first
-      const response = await fetch('/api/sessions', {
+      const payload = JSON.stringify(sessionData);
+      const payloadSizeMB = (payload.length / 1024 / 1024).toFixed(2);
+      
+      console.log(`🎬 Sending session recording to backend: ${sessionIdToSave}`);
+      console.log(`📦 Payload size: ${payloadSizeMB} MB`);
+      
+      if (payload.length > 45 * 1024 * 1024) { // 45MB limit (slightly under 50MB server limit)
+        console.warn('⚠️ Payload is very large, session may be truncated further');
+        // Further reduce events if still too large
+        const reducedEvents = eventsToSend.slice(-500); // Only last 500 events
+        sessionData.events = reducedEvents;
+        sessionData.eventCount = reducedEvents.length;
+        sessionData.truncated = true;
+        console.log(`📊 Reduced to ${reducedEvents.length} events due to size constraints`);
+      }
+      
+      // Send to your backend
+      const response = await fetch('http://localhost:5000/api/session-recording', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,23 +118,15 @@ export const useSessionRecorder = () => {
         body: JSON.stringify(sessionData),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to save to server');
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Session recording sent to backend successfully:', result);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Failed to send session recording to backend:', response.status, errorText);
       }
-
-      console.log('Session saved to server:', sessionIdToSave);
     } catch (error) {
-      console.warn('Failed to save to server, saving locally:', error);
-      
-      // Fallback: save to localStorage
-      try {
-        const existingSessions = JSON.parse(localStorage.getItem('fabricx-sessions') || '[]');
-        existingSessions.push(sessionData);
-        localStorage.setItem('fabricx-sessions', JSON.stringify(existingSessions));
-        console.log('Session saved locally:', sessionIdToSave);
-      } catch (localError) {
-        console.error('Failed to save session:', localError);
-      }
+      console.error('❌ Error sending session recording to backend:', error);
     }
   }, []);
 
@@ -237,22 +255,29 @@ export const useSessionRecorder = () => {
 
     const handleVisibilityChange = () => {
       if (document.hidden && isRecording) {
-        // Don't stop recording when tab becomes hidden, just log it
-        console.log('Tab became hidden, recording continues...');
+        console.log('👁️ Tab became hidden, recording continues...');
+        // Optionally save current session state when tab becomes hidden
+        if (eventsRef.current.length > 0 && sessionId) {
+          console.log('💾 Saving session due to tab becoming hidden...');
+          saveSession(eventsRef.current, sessionId);
+        }
+      } else if (!document.hidden && isRecording) {
+        console.log('👁️ Tab became visible again');
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isRecording]);
+  }, [isRecording, sessionId, saveSession]);
 
   // Handle page unload (when user closes tab or navigates away)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleBeforeUnload = async () => {
+    const handleBeforeUnload = () => {
       if (isRecording && eventsRef.current.length > 0 && sessionId) {
-        // Use sendBeacon for reliable data sending during page unload
+        console.log('🚪 Page unload detected, sending session data...');
+        
         const sessionData = {
           sessionId,
           events: eventsRef.current,
@@ -266,22 +291,45 @@ export const useSessionRecorder = () => {
         };
 
         try {
-          // Try using sendBeacon for better reliability
-          const success = navigator.sendBeacon('/api/sessions', JSON.stringify(sessionData));
-          if (!success) {
+          // Use sendBeacon with correct backend URL and proper format
+          const blob = new Blob([JSON.stringify(sessionData)], { type: 'application/json' });
+          const success = navigator.sendBeacon('http://localhost:5000/api/session-recording', blob);
+          
+          if (success) {
+            console.log('✅ Session data sent via sendBeacon on page unload');
+          } else {
+            console.warn('⚠️ sendBeacon failed, storing locally');
             // Fallback to localStorage
             const existingSessions = JSON.parse(localStorage.getItem('fabricx-sessions') || '[]');
             existingSessions.push(sessionData);
             localStorage.setItem('fabricx-sessions', JSON.stringify(existingSessions));
           }
         } catch (error) {
-          console.error('Failed to save session on unload:', error);
+          console.error('❌ Failed to save session on unload:', error);
+          // Final fallback to localStorage
+          try {
+            const existingSessions = JSON.parse(localStorage.getItem('fabricx-sessions') || '[]');
+            existingSessions.push(sessionData);
+            localStorage.setItem('fabricx-sessions', JSON.stringify(existingSessions));
+          } catch (localError) {
+            console.error('❌ Even localStorage failed:', localError);
+          }
         }
       }
     };
 
+    // Also try with pagehide event for better coverage
+    const handlePageHide = () => {
+      handleBeforeUnload();
+    };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
   }, [isRecording, sessionId]);
 
   // Auto-cleanup on component unmount
@@ -293,6 +341,16 @@ export const useSessionRecorder = () => {
     };
   }, [isRecording]);
 
+  // Manual save function for testing
+  const manualSave = useCallback(async () => {
+    if (eventsRef.current.length > 0 && sessionId) {
+      console.log('🔧 Manual save triggered');
+      await saveSession(eventsRef.current, sessionId);
+    } else {
+      console.log('⚠️ No session data to save');
+    }
+  }, [sessionId, saveSession]);
+
   return {
     events,
     isRecording,
@@ -300,6 +358,7 @@ export const useSessionRecorder = () => {
     startRecording,
     stopRecording,
     saveSession,
+    manualSave,
     eventCount: events.length
   };
 };

@@ -10,6 +10,9 @@ const analyticsController = require('../controllers/analytics');
 // Session creation endpoint for rrweb integration
 router.post('/session', analyticsController.handleSessionCreation);
 
+// Session recording endpoint for rrweb data
+router.post('/session-recording', analyticsController.handleSessionRecording);
+
 // User system information endpoint
 router.post('/user-system-info', analyticsController.handleUserSystemInfo);
 

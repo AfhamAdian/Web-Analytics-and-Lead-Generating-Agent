@@ -481,6 +481,48 @@ async function handleSessionCreation(req, res) {
   }
 }
 
+// Handle session recording data from rrweb
+async function handleSessionRecording(req, res) {
+  try {
+    console.log('🎬 Received session recording data from:', req.headers['user-agent'] || 'Unknown');
+    console.log('📡 Request method:', req.method);
+    console.log('📋 Content-Type:', req.headers['content-type']);
+    console.log('📏 Content-Length:', req.headers['content-length'] || 'Unknown');
+    
+    // Log payload size for monitoring
+    const payloadSize = JSON.stringify(req.body).length;
+    console.log(`📦 Payload size: ${(payloadSize / 1024 / 1024).toFixed(2)} MB`);
+    
+    let sessionData = req.body;
+    
+    // Handle case where data might be sent as raw body (from sendBeacon)
+    if (typeof sessionData === 'string') {
+      sessionData = JSON.parse(sessionData);
+    }
+    
+    console.log('=====================================');
+    console.log('🎬 SESSION RECORDING DATA:');
+    console.log(`⏱️ Duration: ${sessionData.duration}ms (${Math.round(sessionData.duration / 1000)}s)`);
+    console.log('=====================================');
+    
+    res.json({
+      success: true,
+      message: 'Session recording received and printed successfully',
+      sessionId: sessionData.sessionId,
+      eventCount: sessionData.eventCount
+    });
+
+  } catch (error) {
+    console.error('❌ Error handling session recording:', error);
+    console.error('Request body:', req.body);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process session recording',
+      error: error.message
+    });
+  }
+}
+
 // Handle user system information collection
 async function handleUserSystemInfo(req, res) {
   try {
@@ -806,6 +848,7 @@ async function handleClickEvents(req, res) {
 
 module.exports = {
   handleSessionCreation,
+  handleSessionRecording,
   handleUserSystemInfo,
   handlePageViews,
   handleScrollDepth,

@@ -14,7 +14,8 @@ const app = express();
 // Middleware setup
 app.use(morgan('dev')); // Logging middleware
 app.use(cors(config.corsOptions)); // CORS middleware
-app.use(express.json()); // JSON parsing middleware
+app.use(express.json({ limit: '50mb' })); // JSON parsing middleware with increased limit for session recordings
+app.use(express.urlencoded({ limit: '50mb', extended: true })); // URL-encoded parsing with increased limit
 
 // Load routes with error handling
 try {
@@ -70,8 +71,19 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use((error, req, res, next) => {
   console.error('Global error handler:', error);
-  res.status(500).json({ 
-    message: 'Internal server error',
+  
+  // Handle payload too large errors specifically
+  if (error.type === 'entity.too.large') {
+    console.error('❌ Payload too large error:', error.message);
+    return res.status(413).json({
+      message: 'Session recording data is too large',
+      error: 'The session recording contains too much data. Consider reducing recording duration or frequency.',
+      maxSize: '50MB'
+    });
+  }
+  
+  res.status(error.status || 500).json({
+    message: error.message || 'Internal server error',
     error: config.environment === 'development' ? error.message : 'Something went wrong'
   });
 });
