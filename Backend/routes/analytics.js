@@ -28,4 +28,8 @@ router.post('/sessiontime', analyticsController.handleSessionTime);
 // Click events tracking endpoint
 router.post('/click-events', analyticsController.handleClickEvents);
 
+// Session recording retrieval endpoints
+router.get('/session-recording/:sessionId', analyticsController.getSessionRecording);
+router.get('/session-recordings', analyticsController.getAllSessionRecordings);
+
 module.exports = router;

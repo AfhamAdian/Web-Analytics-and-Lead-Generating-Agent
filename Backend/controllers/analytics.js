@@ -3,6 +3,8 @@
 
 const supabase = require('../supabaseClient');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 // ===== HELPER FUNCTIONS (previously in utils/) =====
 
@@ -503,13 +505,47 @@ async function handleSessionRecording(req, res) {
     console.log('=====================================');
     console.log('🎬 SESSION RECORDING DATA:');
     console.log(`⏱️ Duration: ${sessionData.duration}ms (${Math.round(sessionData.duration / 1000)}s)`);
+    console.log(`📊 Events: ${sessionData.eventCount || sessionData.events?.length || 0}`);
     console.log('=====================================');
-    
+
+    // Sanitize session ID for database
+    const cleanSessionId = sanitizeSessionId(sessionData.sessionId);
+    console.log(`🔧 Session ID sanitized: ${sessionData.sessionId} → ${cleanSessionId}`);
+
+    // Prepare metadata
+    const metadata = {
+      userAgent: req.headers['user-agent'],
+      ip: req.ip || req.connection.remoteAddress,
+      duration: sessionData.duration,
+      eventCount: sessionData.eventCount || sessionData.events?.length || 0,
+      truncated: sessionData.truncated || false,
+      timestamp: new Date().toISOString()
+    };
+
+    // Save to Supabase session_recordings table
+    const { data: recordingData, error: recordingError } = await supabase
+      .from('session_recordings')
+      .insert({
+        session_id: cleanSessionId,
+        events: sessionData.events || [],
+        metadata: metadata,
+        file_size: payloadSize
+      })
+      .select();
+
+    if (recordingError) {
+      console.error('❌ Error saving session recording to database:', recordingError);
+      throw recordingError;
+    }
+    console.log('✅ Session recording saved to database:', recordingData[0]?.id);
+
     res.json({
       success: true,
-      message: 'Session recording received and printed successfully',
+      message: 'Session recording saved successfully',
       sessionId: sessionData.sessionId,
-      eventCount: sessionData.eventCount
+      recordingId: recordingData[0]?.id,
+      eventCount: sessionData.eventCount || sessionData.events?.length || 0,
+      fileSize: payloadSize
     });
 
   } catch (error) {
@@ -518,6 +554,108 @@ async function handleSessionRecording(req, res) {
     res.status(500).json({
       success: false,
       message: 'Failed to process session recording',
+      error: error.message
+    });
+  }
+}
+
+// Get session recording by session ID
+async function getSessionRecording(req, res) {
+  try {
+    const { sessionId } = req.params;
+    
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Session ID is required'
+      });
+    }
+
+    // Sanitize session ID
+    const cleanSessionId = sanitizeSessionId(sessionId);
+    console.log(`🔍 Retrieving session recording for: ${sessionId} → ${cleanSessionId}`);
+
+    // Get session recording from database
+    const { data: recordingData, error: recordingError } = await supabase
+      .from('session_recordings')
+      .select('*')
+      .eq('session_id', cleanSessionId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (recordingError) {
+      console.error('❌ Error fetching session recording:', recordingError);
+      throw recordingError;
+    }
+
+    if (!recordingData || recordingData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session recording not found'
+      });
+    }
+
+    console.log('✅ Session recording retrieved:', recordingData[0].id);
+
+    res.json({
+      success: true,
+      message: 'Session recording retrieved successfully',
+      data: recordingData[0]
+    });
+
+  } catch (error) {
+    console.error('❌ Error retrieving session recording:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve session recording',
+      error: error.message
+    });
+  }
+}
+
+// Get all session recordings with pagination
+async function getAllSessionRecordings(req, res) {
+  try {
+    const { page = 1, limit = 10, sessionId } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('session_recordings')
+      .select('id, session_id, metadata, file_size, created_at, updated_at')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    // Filter by session ID if provided
+    if (sessionId) {
+      const cleanSessionId = sanitizeSessionId(sessionId);
+      query = query.eq('session_id', cleanSessionId);
+    }
+
+    const { data: recordings, error: recordingsError } = await query;
+
+    if (recordingsError) {
+      console.error('❌ Error fetching session recordings:', recordingsError);
+      throw recordingsError;
+    }
+
+    console.log(`✅ Retrieved ${recordings.length} session recordings`);
+
+    res.json({
+      success: true,
+      message: 'Session recordings retrieved successfully',
+      data: recordings,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        count: recordings.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error retrieving session recordings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve session recordings',
       error: error.message
     });
   }
@@ -849,6 +987,8 @@ async function handleClickEvents(req, res) {
 module.exports = {
   handleSessionCreation,
   handleSessionRecording,
+  getSessionRecording,
+  getAllSessionRecordings,
   handleUserSystemInfo,
   handlePageViews,
   handleScrollDepth,
