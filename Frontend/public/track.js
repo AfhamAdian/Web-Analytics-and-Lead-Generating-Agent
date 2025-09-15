@@ -1,3 +1,5 @@
+const BACKEND_URL = "http://localhost:5000/api";
+
 (function () {
   try {
     // Get site ID from script tag - this must match the database site_id
@@ -242,8 +244,6 @@ const cookieConsent = {
 
 
 
-
-
   
   // Initialize page tracking after user ID is available
   initializePageTracking: function() {
@@ -471,8 +471,8 @@ const cookieConsent = {
   // Send click event data to backend
   sendClickEvent: function(clickData) {
     console.log("🖱️ Click event tracked:", clickData);
-    
-    fetch("http://localhost:5000/api/click-events", {
+
+    fetch(`${BACKEND_URL}/click-events`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(clickData),
@@ -518,8 +518,8 @@ const cookieConsent = {
   // Send scroll depth event data to backend
   sendScrollDepthEvent: function(scrollData) {
     console.log("📏 Scroll depth tracked:", scrollData);
-    
-    fetch("http://localhost:5000/api/scroll-depth", {
+
+    fetch(`${BACKEND_URL}/scroll-depth`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(scrollData),
@@ -569,7 +569,7 @@ const cookieConsent = {
 
       console.log("💻 User system info tracked:", systemData);
 
-      fetch("http://localhost:5000/api/user-system-info", {
+      fetch(`${BACKEND_URL}/user-system-info`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(systemData),
@@ -595,7 +595,7 @@ const cookieConsent = {
 
       console.log("💻 User system info tracked (no location):", systemData);
 
-      fetch("http://localhost:5000/api/user-system-info", {
+      fetch(`${BACKEND_URL}/user-system-info`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(systemData),
@@ -756,7 +756,7 @@ const cookieConsent = {
     
     if (hasData) {
       // Send to backend immediately
-      fetch("http://localhost:5000/api/user-detail-informations", {
+      fetch(`${BACKEND_URL}/user-detail-informations`, {
         //this portion is for Farbricx website specific
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -835,9 +835,9 @@ const cookieConsent = {
     };
     
     console.log("🚀 Sending page view data to backend:", pageViewData);
-    
-    fetch("http://localhost:5000/api/pageviews", {
-      method: "POST", 
+
+    fetch(`${BACKEND_URL}/pageviews`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pageViewData),
       keepalive: true,
@@ -871,9 +871,9 @@ const cookieConsent = {
     };
     
     console.log("⏱️ Sending session time data to backend:", sessionTimeData);
-    
-  
-      fetch("http://localhost:5000/api/sessiontime", {
+
+
+      fetch(`${BACKEND_URL}/sessiontime`, {
         method: "POST", 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(sessionTimeData),
@@ -923,84 +923,3 @@ if (document.readyState === 'loading') {
 } else {
   cookieConsent.showConsentBanner();
 }
-
-
-
-
-
-
-
-
-
-/*
-    // Get session start time (first page load in this tab)
-    if (!sessionStorage.getItem("sessionStart")) {
-      sessionStorage.setItem("sessionStart", Date.now());
-    }
-    const sessionStart = parseInt(sessionStorage.getItem("sessionStart"), 10);
-
-    // Calculate session duration so far (in seconds)
-    const sessionDuration = Math.floor((Date.now() - sessionStart) / 1000);
-
-
-
-    // Generate or get sesion ID
-    let sessionId = sessionStorage.getItem("sessionId");
-    if (!sessionId) {
-      // Generate new session ID (UUID-like format)
-      sessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        const r = Math.random() * 16 | 0;
-        const v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
-      sessionStorage.setItem("sessionId", sessionId);
-
-      // Start new session
-      const sessionData = {
-        siteId,
-        sessionId,
-        browser,
-        os,
-        userAgent,
-        action: "start"
-      };
-
-      fetch("http://127.0.0.1:8000/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sessionData),
-        keepalive: true,
-      }).catch((err) => {
-        console.warn("Session start tracking failed:", err);
-      });
-
-      console.log("New session started:", sessionId);
-    }
-
-    // Handle session end on page unload
-    const endSession = () => {
-      const endData = {
-        siteId,
-        sessionId,
-        sessionDuration,
-        action: "end"
-      };
-
-      fetch("http://127.0.0.1:8000/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(endData),
-        keepalive: true,
-      }).catch((err) => {
-        console.warn("Session end tracking failed:", err);
-      });
-    };
-  } catch (error) {
-    console.error("Error in tracking script:", error);
-  }
-})();*/
-
-
-
-
-
