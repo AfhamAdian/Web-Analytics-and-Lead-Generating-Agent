@@ -21,7 +21,7 @@ function App() {
         <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/profile" element={isAuthenticated ? <Profile /> : <Navigate to="/login" />} />
         <Route path="/site/:siteId" element={isAuthenticated ? <SiteDetails /> : <Navigate to="/login" />} />
-        <Route path="/sites/:siteId/session/:sessionId" element={isAuthenticated ? <SessionReplay /> : <Navigate to="/login" />} />
+        <Route path="/sites/:siteId/recording/:recordingId" element={isAuthenticated ? <SessionReplay /> : <Navigate to="/login" />} />
         <Route path="/add-site" element={isAuthenticated ? <AddSite /> : <Navigate to="/login" />} />
         <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
         <Route path="/404" element={<NotFound />} />

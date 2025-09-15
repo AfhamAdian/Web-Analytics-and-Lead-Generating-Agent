@@ -24,7 +24,7 @@ import api from '../../Services/api';
 
 const SessionReplay = () => {
   const navigate = useNavigate();
-  const { siteId, sessionId } = useParams();
+  const { siteId, recordingId } = useParams();
   const [loading, setLoading] = useState(true);
   const [sessionData, setSessionData] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -39,9 +39,9 @@ const SessionReplay = () => {
       try {
         setLoading(true);
         setError(null);
-        console.log('🎬 Fetching session recording:', sessionId);
+        console.log('🎬 Fetching session recording:', recordingId);
         
-        const response = await api.get(`/sessions/${sessionId}`);
+        const response = await api.get(`/sessions/recording/${recordingId}`);
         
         if (response.data.success) {
           setSessionData(response.data.session);
@@ -57,10 +57,10 @@ const SessionReplay = () => {
       }
     };
 
-    if (sessionId) {
+    if (recordingId) {
       loadSessionData();
     }
-  }, [sessionId]);
+  }, [recordingId]);
 
   const handleBack = () => {
     navigate(`/sites/${siteId}`);

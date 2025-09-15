@@ -19,11 +19,11 @@ router.use(authMiddleware);
 router.get('/site/:siteId', getSessionRecordings);
 
 /**
- * @route GET /api/sessions/:sessionId
- * @desc Get a specific session recording by session ID
+ * @route GET /api/sessions/recording/:recordingId
+ * @desc Get a specific session recording by recording ID
  * @access Private
  */
-router.get('/:sessionId', getSessionRecording);
+router.get('/recording/:recordingId', getSessionRecording);
 
 /**
  * @route GET /api/sessions/site/:siteId/stats

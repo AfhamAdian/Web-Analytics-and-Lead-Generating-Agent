@@ -1157,7 +1157,7 @@ const SiteDetails = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <button
-                                  onClick={() => navigate(`/sites/${siteId}/session/${session.sessionId}`)}
+                                  onClick={() => navigate(`/sites/${siteId}/recording/${session.recordingId}`)}
                                   className="flex items-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
                                 >
                                   <Play className="h-4 w-4" />

@@ -146,16 +146,16 @@ const getSessionRecordings = async (req, res) => {
 };
 
 /**
- * Get a specific session recording by session ID
+ * Get a specific session recording by recording ID
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
 const getSessionRecording = async (req, res) => {
   try {
-    const { sessionId } = req.params;
-    console.log(`🎬 Fetching session recording: ${sessionId}`);
+    const { recordingId } = req.params;
+    console.log(`🎬 Fetching session recording: ${recordingId}`);
 
-    // Get session recording with all related data
+    // Get session recording with all related data using recording ID
     const { data: recordingData, error: recordingError } = await supabase
       .from('session_recordings')
       .select(`
@@ -192,7 +192,7 @@ const getSessionRecording = async (req, res) => {
           )
         )
       `)
-      .eq('session_id', sessionId)
+      .eq('id', recordingId)
       .single();
 
     if (recordingError) {
@@ -207,7 +207,7 @@ const getSessionRecording = async (req, res) => {
     const { data: eventsData, error: eventsError } = await supabase
       .from('events')
       .select('*')
-      .eq('session_id', sessionId)
+      .eq('session_id', recordingData.session_id)
       .order('event_timestamp', { ascending: true });
 
     if (eventsError) {
@@ -303,7 +303,7 @@ const getSessionRecording = async (req, res) => {
       recordingMetadata: recordingData.metadata
     };
 
-    console.log(`✅ Retrieved session recording: ${sessionId}`);
+    console.log(`✅ Retrieved session recording: ${recordingId}`);
     
     res.json({
       success: true,
