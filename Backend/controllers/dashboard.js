@@ -671,6 +671,25 @@ async function handleSiteAnalytics(req, res) {
         return acc;
       }, {});
 
+    const regionStats = (visitorsData || [])
+      .filter(v => v.region)
+      .reduce((acc, visitor) => {
+        const region = visitor.region || 'Unknown';
+        acc[region] = (acc[region] || 0) + 1;
+        return acc;
+      }, {});
+
+    const cookieConsent = (visitorsData || [])
+      .reduce((acc, visitor) => {
+        if (visitor.cookie_consent_accepted === true) {
+          acc.accepted = (acc.accepted || 0) + 1;
+        } else {
+          // Both false and null/undefined are treated as rejected
+          acc.rejected = (acc.rejected || 0) + 1;
+        }
+        return acc;
+      }, { accepted: 0, rejected: 0 });
+
     res.status(200).json({
       message: 'Site analytics fetched successfully',
       site: siteData,
@@ -681,6 +700,8 @@ async function handleSiteAnalytics(req, res) {
       deviceStats,
       osStats,
       countryStats,
+      regionStats,
+      cookieConsent,
       leads: leadsData?.filter(v => v.lead_name) || []
     });
 

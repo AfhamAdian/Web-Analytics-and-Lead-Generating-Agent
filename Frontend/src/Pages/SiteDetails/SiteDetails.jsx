@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Users, Eye, MousePointer, UserCheck, Globe, Monitor, Smartphone, Download, Star, TrendingUp, Play } from 'lucide-react';
+import { ArrowLeft, Users, Eye, MousePointer, UserCheck, Globe, Monitor, Smartphone, Download, Star, TrendingUp, Play, MapPin, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../../Services/api';
@@ -574,6 +574,131 @@ const SiteDetails = () => {
                       <p className="text-sm text-gray-400 mt-1">Data will appear as visitors access your site</p>
                     </div>
                   )}
+                </div>
+
+                {/* Region Analytics */}
+                <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg shadow-sm border border-green-200 p-6 mb-6">
+                  <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                    <MapPin className="h-6 w-6 mr-3 text-green-600" />
+                    Region Distribution
+                    <span className="ml-2 text-sm font-normal text-gray-600">
+                      ({Object.values(analytics.regionStats || {}).reduce((sum, count) => sum + count, 0)} total visitors)
+                    </span>
+                  </h3>
+                  
+                  {Object.keys(analytics.regionStats || {}).length > 0 ? (
+                    <div className="space-y-4">
+                      {Object.entries(analytics.regionStats || {})
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([region, count], index) => {
+                          const totalVisitors = Object.values(analytics.regionStats || {}).reduce((sum, c) => sum + c, 0);
+                          const percentage = totalVisitors > 0 ? ((count / totalVisitors) * 100).toFixed(1) : '0.0';
+                          const isTop = index < 3;
+                          
+                          return (
+                            <div key={region} className="relative">
+                              <div className={`flex items-center justify-between p-4 rounded-lg transition-all ${
+                                isTop 
+                                  ? 'bg-white shadow-md border-l-4 border-green-500' 
+                                  : 'bg-white/70 border border-gray-200'
+                              }`}>
+                                <div className="flex items-center space-x-4">
+                                  <div className={`w-3 h-3 rounded-full ${
+                                    index === 0 ? 'bg-green-500' :
+                                    index === 1 ? 'bg-green-400' :
+                                    index === 2 ? 'bg-green-300' : 'bg-gray-300'
+                                  }`}></div>
+                                  <div>
+                                    <span className={`font-semibold ${isTop ? 'text-gray-900' : 'text-gray-700'}`}>
+                                      {region}
+                                    </span>
+                                    {isTop && (
+                                      <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                                        #{index + 1}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                  <div className="text-right">
+                                    <div className={`font-bold ${isTop ? 'text-lg text-gray-900' : 'text-gray-800'}`}>
+                                      {count}
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                      {percentage}%
+                                    </div>
+                                  </div>
+                                  <div className="w-20 bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className={`h-2 rounded-full ${
+                                        index === 0 ? 'bg-green-500' :
+                                        index === 1 ? 'bg-green-400' :
+                                        index === 2 ? 'bg-green-300' : 'bg-gray-400'
+                                      }`}
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <MapPin className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                      <p className="text-gray-500">No region data available yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Data will appear as visitors access your site</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Cookie Consent Analytics */}
+                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg shadow-sm border border-yellow-200 p-6 mb-6">
+                  <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                    <Shield className="h-6 w-6 mr-3 text-yellow-600" />
+                    Cookie Consent Analytics
+                    <span className="ml-2 text-sm font-normal text-gray-600">
+                      Privacy compliance overview
+                    </span>
+                  </h3>
+                  
+                  {/* Cookie Consent Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="bg-white rounded-lg p-6 border border-green-200 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-gray-900">Accepted</h4>
+                        <CheckCircle className="text-green-600" size={24} />
+                      </div>
+                      <div className="text-3xl font-bold text-green-600 mb-2">
+                        {(analytics.cookieConsent?.accepted || 0).toLocaleString()}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {(() => {
+                          const total = (analytics.cookieConsent?.accepted || 0) + 
+                                       (analytics.cookieConsent?.rejected || 0);
+                          return total > 0 ? ((analytics.cookieConsent?.accepted || 0) / total * 100).toFixed(1) : '0.0';
+                        })()}% of visitors
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-6 border border-red-200 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-gray-900">Rejected</h4>
+                        <XCircle className="text-red-600" size={24} />
+                      </div>
+                      <div className="text-3xl font-bold text-red-600 mb-2">
+                        {(analytics.cookieConsent?.rejected || 0).toLocaleString()}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {(() => {
+                          const total = (analytics.cookieConsent?.accepted || 0) + 
+                                       (analytics.cookieConsent?.rejected || 0);
+                          return total > 0 ? ((analytics.cookieConsent?.rejected || 0) / total * 100).toFixed(1) : '0.0';
+                        })()}% of visitors
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
