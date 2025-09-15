@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../Services/api';
+import SessionPlayer from '../Playback/SessionPlayer';
 
 const SessionReplay = () => {
   const navigate = useNavigate();
@@ -233,45 +234,42 @@ const SessionReplay = () => {
               </div>
             </div>
             
-            {/* Simulated Website Content */}
-            <div className="h-full bg-white rounded-b-lg p-8 overflow-hidden relative">
-              <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-800 mb-4">Website Replay Simulation</h2>
-                <p className="text-gray-600 mb-8">
-                  This is a simulated view of the user's session on your website
-                </p>
-                
-                {/* Current Page Indicator */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold text-blue-800">
-                    Current Page: {sessionData.pageJourney[Math.floor(currentTime / 60)]?.page || sessionData.sessionDetails.entryPage}
-                  </h3>
-                  <p className="text-blue-600 text-sm mt-1">
-                    Time spent: {formatDuration(sessionData.pageJourney[Math.floor(currentTime / 60)]?.duration || 0)}
-                  </p>
-                </div>
+            {/* rrweb Player Content */}
+            <div className="h-full bg-white rounded-b-lg overflow-hidden relative">
+              {sessionData.recordingEvents && sessionData.recordingEvents.length > 0 ? (
+                <SessionPlayer events={sessionData.recordingEvents} />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">No Recording Available</h2>
+                    <p className="text-gray-600 mb-8">
+                      This session doesn't have rrweb recording data available.
+                    </p>
+                    
+                    {/* Fallback: Current Page Indicator */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                      <h3 className="font-semibold text-blue-800">
+                        Current Page: {sessionData.pageJourney[Math.floor(currentTime / 60)]?.page || sessionData.sessionDetails.entryPage}
+                      </h3>
+                      <p className="text-blue-600 text-sm mt-1">
+                        Time spent: {formatDuration(sessionData.pageJourney[Math.floor(currentTime / 60)]?.duration || 0)}
+                      </p>
+                    </div>
 
-                {/* Mouse Cursor Simulation */}
-                <div 
-                  className="absolute w-4 h-4 bg-red-500 rounded-full pointer-events-none transition-all duration-200"
-                  style={{
-                    left: `${300 + Math.sin(currentTime / 10) * 100}px`,
-                    top: `${200 + Math.cos(currentTime / 15) * 50}px`
-                  }}
-                ></div>
-
-                {/* Event Indicators */}
-                <div className="space-y-2">
-                  {sessionData.events
-                    .filter(event => event.timestamp <= currentTime * 1000 && event.timestamp > (currentTime - 5) * 1000)
-                    .map((event, index) => (
-                      <div key={index} className="bg-green-100 border border-green-300 rounded p-2 text-green-800 text-sm">
-                        <strong>{event.type.replace('_', ' ').toUpperCase()}</strong>
-                        {event.element && ` on ${event.element}`}
-                      </div>
-                    ))}
+                    {/* Recent Event Indicators */}
+                    <div className="space-y-2">
+                      {sessionData.events
+                        .filter(event => event.timestamp <= currentTime * 1000 && event.timestamp > (currentTime - 5) * 1000)
+                        .map((event, index) => (
+                          <div key={index} className="bg-green-100 border border-green-300 rounded p-2 text-green-800 text-sm">
+                            <strong>{event.type.replace('_', ' ').toUpperCase()}</strong>
+                            {event.element && ` on ${event.element}`}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
