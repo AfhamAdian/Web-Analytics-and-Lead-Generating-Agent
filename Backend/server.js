@@ -43,6 +43,12 @@ try {
   app.use('/api', dashboardRoutes);
   console.log('✅ Dashboard routes loaded');
 
+  // Session recording routes
+  console.log('Loading session routes...');
+  const sessionRoutes = require('./routes/sessions');
+  app.use('/api/sessions', sessionRoutes);
+  console.log('✅ Session routes loaded');
+
 } catch (error) {
   console.error('❌ Error loading routes:', error.message);
   console.error('Stack trace:', error.stack);

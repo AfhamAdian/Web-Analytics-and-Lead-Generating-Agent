@@ -55,160 +55,25 @@ const SiteDetails = () => {
     }
   };
 
-  // Dummy session data for Session Replay feature
-  const dummySessionData = [
-    {
-      sessionId: 'session_abc123def456',
-      visitorId: 'visitor_789xyz012',
-      visitorInfo: {
-        name: 'John Smith',
-        email: 'john.smith@example.com',
-        location: 'New York, US',
-        isLead: true
-      },
-      engagement: {
-        pageViews: 12,
-        duration: 845, // seconds
-        clicks: 23,
-        scrollEvents: 45,
-        formSubmissions: 2
-      },
-      sessionDetails: {
-        startTime: '2025-09-16T10:30:00Z',
-        endTime: '2025-09-16T10:44:05Z',
-        browser: 'Chrome 128',
-        device: 'Desktop',
-        os: 'Windows 11',
-        entryPage: '/home',
-        exitPage: '/contact',
-        pagesVisited: ['/home', '/products', '/about', '/pricing', '/contact']
-      },
-      leadScore: 95
-    },
-    {
-      sessionId: 'session_ghi789jkl012',
-      visitorId: 'visitor_345mno678',
-      visitorInfo: {
-        name: 'Sarah Johnson',
-        email: 'sarah.j@company.com',
-        location: 'California, US',
-        isLead: true
-      },
-      engagement: {
-        pageViews: 8,
-        duration: 623,
-        clicks: 18,
-        scrollEvents: 32,
-        formSubmissions: 1
-      },
-      sessionDetails: {
-        startTime: '2025-09-16T14:15:00Z',
-        endTime: '2025-09-16T14:25:23Z',
-        browser: 'Safari 17',
-        device: 'MacBook',
-        os: 'macOS Sonoma',
-        entryPage: '/products',
-        exitPage: '/demo-request',
-        pagesVisited: ['/products', '/features', '/case-studies', '/demo-request']
-      },
-      leadScore: 87
-    },
-    {
-      sessionId: 'session_pqr345stu678',
-      visitorId: 'visitor_901vwx234',
-      visitorInfo: {
-        name: 'Anonymous User',
-        email: null,
-        location: 'London, UK',
-        isLead: false
-      },
-      engagement: {
-        pageViews: 5,
-        duration: 234,
-        clicks: 8,
-        scrollEvents: 15,
-        formSubmissions: 0
-      },
-      sessionDetails: {
-        startTime: '2025-09-16T16:45:00Z',
-        endTime: '2025-09-16T16:48:54Z',
-        browser: 'Firefox 118',
-        device: 'Mobile',
-        os: 'Android 14',
-        entryPage: '/blog',
-        exitPage: '/blog/article-1',
-        pagesVisited: ['/blog', '/blog/article-1']
-      },
-      leadScore: 25
-    },
-    {
-      sessionId: 'session_yza567bcd890',
-      visitorId: 'visitor_123efg456',
-      visitorInfo: {
-        name: 'Michael Chen',
-        email: 'michael.chen@tech.co',
-        location: 'Singapore, SG',
-        isLead: true
-      },
-      engagement: {
-        pageViews: 15,
-        duration: 1245,
-        clicks: 34,
-        scrollEvents: 67,
-        formSubmissions: 3
-      },
-      sessionDetails: {
-        startTime: '2025-09-16T09:20:00Z',
-        endTime: '2025-09-16T09:40:45Z',
-        browser: 'Edge 117',
-        device: 'Desktop',
-        os: 'Windows 10',
-        entryPage: '/solutions',
-        exitPage: '/get-started',
-        pagesVisited: ['/solutions', '/enterprise', '/pricing', '/testimonials', '/get-started']
-      },
-      leadScore: 112
-    },
-    {
-      sessionId: 'session_hij123klm456',
-      visitorId: 'visitor_789opq012',
-      visitorInfo: {
-        name: 'Emily Rodriguez',
-        email: 'e.rodriguez@startup.io',
-        location: 'Austin, US',
-        isLead: true
-      },
-      engagement: {
-        pageViews: 7,
-        duration: 456,
-        clicks: 15,
-        scrollEvents: 28,
-        formSubmissions: 1
-      },
-      sessionDetails: {
-        startTime: '2025-09-16T13:10:00Z',
-        endTime: '2025-09-16T13:17:36Z',
-        browser: 'Chrome 128',
-        device: 'Tablet',
-        os: 'iPadOS 17',
-        entryPage: '/features',
-        exitPage: '/contact',
-        pagesVisited: ['/features', '/integrations', '/support', '/contact']
-      },
-      leadScore: 73
-    }
-  ];
-
+  // Fetch session recordings from API
   const fetchSessions = async () => {
     try {
       setSessionsLoading(true);
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Use dummy data for now
-      setSessions(dummySessionData);
+      console.log('🎬 Fetching session recordings for site:', siteId);
+      
+      const response = await api.get(`/sessions/site/${siteId}`);
+      
+      if (response.data.success) {
+        setSessions(response.data.sessions);
+        console.log('✅ Successfully loaded', response.data.sessions.length, 'session recordings');
+      } else {
+        throw new Error(response.data.error || 'Failed to fetch sessions');
+      }
     } catch (err) {
-      console.error('Error fetching sessions:', err);
-      setError('Failed to load sessions data');
+      console.error('❌ Error fetching sessions:', err);
+      setError('Failed to load session recordings');
+      // If API fails, set empty array to avoid showing dummy data
+      setSessions([]);
     } finally {
       setSessionsLoading(false);
     }

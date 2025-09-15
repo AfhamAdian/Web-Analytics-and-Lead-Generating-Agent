@@ -20,6 +20,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import api from '../../Services/api';
 
 const SessionReplay = () => {
   const navigate = useNavigate();
@@ -30,83 +31,35 @@ const SessionReplay = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [activeTab, setActiveTab] = useState('replay');
-
-  // Dummy session data - In real implementation, this would be fetched based on sessionId
-  const dummySessionDetails = {
-    sessionId: 'session_abc123def456',
-    visitorId: 'visitor_789xyz012',
-    visitorInfo: {
-      name: 'John Smith',
-      email: 'john.smith@example.com',
-      location: 'New York, US',
-      isLead: true,
-      leadScore: 95,
-      device: 'Desktop',
-      browser: 'Chrome 128.0.0.0',
-      os: 'Windows 11',
-      screenResolution: '1920x1080',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
-    },
-    sessionDetails: {
-      startTime: '2025-09-16T10:30:00Z',
-      endTime: '2025-09-16T10:44:05Z',
-      duration: 845, // seconds
-      entryPage: '/home',
-      exitPage: '/contact',
-      totalPageViews: 12,
-      uniquePageViews: 8,
-      bounceRate: false,
-      conversionEvents: ['form_submit', 'email_signup', 'demo_request']
-    },
-    engagement: {
-      clicks: 23,
-      scrollEvents: 45,
-      formSubmissions: 2,
-      timeOnPage: {
-        '/home': 120,
-        '/products': 180,
-        '/about': 90,
-        '/pricing': 240,
-        '/contact': 215
-      }
-    },
-    events: [
-      { timestamp: 0, type: 'page_load', page: '/home', data: { loadTime: 1.2 } },
-      { timestamp: 5000, type: 'scroll', data: { scrollDepth: 25 } },
-      { timestamp: 12000, type: 'click', element: 'nav-products', data: { x: 245, y: 89 } },
-      { timestamp: 12500, type: 'page_load', page: '/products', data: { loadTime: 0.8 } },
-      { timestamp: 25000, type: 'scroll', data: { scrollDepth: 50 } },
-      { timestamp: 35000, type: 'click', element: 'product-card-1', data: { x: 340, y: 250 } },
-      { timestamp: 45000, type: 'form_focus', element: 'contact-form-name', data: {} },
-      { timestamp: 48000, type: 'form_input', element: 'contact-form-name', data: { value: 'John Smith' } },
-      { timestamp: 52000, type: 'form_focus', element: 'contact-form-email', data: {} },
-      { timestamp: 55000, type: 'form_input', element: 'contact-form-email', data: { value: 'john.smith@example.com' } },
-      { timestamp: 60000, type: 'form_submit', element: 'contact-form', data: { success: true } }
-    ],
-    pageJourney: [
-      { page: '/home', timestamp: 0, duration: 120000, events: 8 },
-      { page: '/products', timestamp: 120000, duration: 180000, events: 12 },
-      { page: '/about', timestamp: 300000, duration: 90000, events: 4 },
-      { page: '/pricing', timestamp: 390000, duration: 240000, events: 15 },
-      { page: '/contact', timestamp: 630000, duration: 215000, events: 6 }
-    ]
-  };
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Simulate loading session data
+    // Load session data from API
     const loadSessionData = async () => {
-      setLoading(true);
-      // In real implementation, fetch session data from API using sessionId
-      // const response = await api.get(`/sessions/${sessionId}`);
-      // setSessionData(response.data);
-      
-      // For now, use dummy data
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setSessionData(dummySessionDetails);
-      setLoading(false);
+      try {
+        setLoading(true);
+        setError(null);
+        console.log('🎬 Fetching session recording:', sessionId);
+        
+        const response = await api.get(`/sessions/${sessionId}`);
+        
+        if (response.data.success) {
+          setSessionData(response.data.session);
+          console.log('✅ Successfully loaded session recording');
+        } else {
+          throw new Error(response.data.error || 'Failed to fetch session recording');
+        }
+      } catch (err) {
+        console.error('❌ Error fetching session recording:', err);
+        setError(err.response?.data?.error || 'Failed to load session recording');
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadSessionData();
+    if (sessionId) {
+      loadSessionData();
+    }
   }, [sessionId]);
 
   const handleBack = () => {
@@ -145,7 +98,7 @@ const SessionReplay = () => {
     );
   }
 
-  if (!sessionData) {
+  if (error || (!loading && !sessionData)) {
     return (
       <div className="min-h-screen bg-gray-100">
         <header className="bg-white shadow-sm border-b px-6 py-4">
@@ -162,7 +115,10 @@ const SessionReplay = () => {
         </header>
         <main className="max-w-4xl mx-auto p-6">
           <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-            <p className="text-red-600">Session replay not found</p>
+            <p className="text-red-600">{error || 'Session recording not found'}</p>
+            <p className="text-gray-500 mt-2 text-sm">
+              The session recording may have been deleted or the session ID is invalid.
+            </p>
           </div>
         </main>
       </div>
