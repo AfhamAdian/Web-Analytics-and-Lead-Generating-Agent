@@ -70,13 +70,10 @@ export const useSessionRecorder = () => {
   const saveSession = useCallback(async (sessionEvents: RRWebEvent[], sessionIdToSave: string) => {
     if (sessionEvents.length === 0) return;
 
-    // Limit the number of events to prevent payload size issues
-    const maxEvents = 1000; // Limit to 1000 events
-    const eventsToSend = sessionEvents.length > maxEvents 
-      ? sessionEvents.slice(-maxEvents) // Take the last 1000 events
-      : sessionEvents;
+    // Send all events without any slicing or limitation
+    const eventsToSend = sessionEvents;
 
-    console.log(`📊 Preparing to send ${eventsToSend.length} events (${sessionEvents.length} total recorded)`);
+    console.log(`📊 Preparing to send ${eventsToSend.length} events (all recorded events)`);
 
     const sessionData = {
       sessionId: sessionIdToSave,
@@ -89,7 +86,7 @@ export const useSessionRecorder = () => {
       userAgent: navigator.userAgent,
       url: window.location.href,
       timestamp: new Date().toISOString(),
-      truncated: sessionEvents.length > maxEvents
+      truncated: false // No longer truncating events
     };
 
     try {
@@ -99,15 +96,8 @@ export const useSessionRecorder = () => {
       console.log(`🎬 Sending session recording to backend: ${sessionIdToSave}`);
       console.log(`📦 Payload size: ${payloadSizeMB} MB`);
       
-      if (payload.length > 45 * 1024 * 1024) { // 45MB limit (slightly under 50MB server limit)
-        console.warn('⚠️ Payload is very large, session may be truncated further');
-        // Further reduce events if still too large
-        const reducedEvents = eventsToSend.slice(-500); // Only last 500 events
-        sessionData.events = reducedEvents;
-        sessionData.eventCount = reducedEvents.length;
-        sessionData.truncated = true;
-        console.log(`📊 Reduced to ${reducedEvents.length} events due to size constraints`);
-      }
+      // Send all data without any size-based limitations
+      console.log(`📊 Sending all ${eventsToSend.length} events without truncation`);
       
       // Send to your backend
       const response = await fetch('http://localhost:5000/api/session-recording', {

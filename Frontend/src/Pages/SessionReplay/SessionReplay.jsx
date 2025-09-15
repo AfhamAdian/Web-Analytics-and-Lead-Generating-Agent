@@ -3,18 +3,6 @@ import {
   ArrowLeft, 
   User, 
   Clock, 
-  MousePointer, 
-  Eye, 
-  Play, 
-  Pause, 
-  SkipForward, 
-  SkipBack, 
-  Volume2,
-  Settings,
-  Download,
-  Share2,
-  Star,
-  MapPin,
   Monitor,
   Globe,
   Calendar
@@ -28,11 +16,11 @@ const SessionReplay = () => {
   const { siteId, recordingId } = useParams();
   const [loading, setLoading] = useState(true);
   const [sessionData, setSessionData] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [activeTab, setActiveTab] = useState('replay');
   const [error, setError] = useState(null);
+
+  // Debug logging
+  console.log('🔍 SessionReplay params:', { siteId, recordingId });
 
   useEffect(() => {
     // Load session data from API
@@ -64,15 +52,13 @@ const SessionReplay = () => {
   }, [recordingId]);
 
   const handleBack = () => {
-    navigate(`/sites/${siteId}`);
-  };
-
-  const togglePlayback = () => {
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleSpeedChange = (speed) => {
-    setPlaybackSpeed(speed);
+    if (!siteId) {
+      console.error('❌ No siteId available for navigation');
+      navigate('/dashboard'); // Fallback to dashboard
+      return;
+    }
+    console.log('🔙 Navigating back to site details:', `/site/${siteId}`);
+    navigate(`/site/${siteId}`);
   };
 
   const formatTime = (seconds) => {
@@ -82,10 +68,17 @@ const SessionReplay = () => {
   };
 
   const formatDuration = (milliseconds) => {
-    const seconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    if (!milliseconds || milliseconds <= 0) return '0:00';
+    
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -106,7 +99,7 @@ const SessionReplay = () => {
           <div className="flex items-center space-x-4">
             <button
               onClick={handleBack}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-2 rounded-md transition-all duration-200 border border-gray-300 hover:border-gray-400"
             >
               <ArrowLeft size={20} />
               <span>Back to Site Details</span>
@@ -134,7 +127,7 @@ const SessionReplay = () => {
           <div className="flex items-center space-x-4">
             <button
               onClick={handleBack}
-              className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+              className="flex items-center space-x-2 text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-2 rounded-md transition-all duration-200 border border-gray-600 hover:border-gray-500"
             >
               <ArrowLeft size={20} />
               <span>Back to Site Details</span>
@@ -149,79 +142,21 @@ const SessionReplay = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Playback Controls */}
-            <div className="flex items-center space-x-2 bg-gray-700 rounded-lg px-4 py-2">
-              <button
-                onClick={() => setCurrentTime(Math.max(0, currentTime - 10))}
-                className="text-gray-300 hover:text-white"
-              >
-                <SkipBack size={18} />
-              </button>
-              <button
-                onClick={togglePlayback}
-                className="text-white bg-orange-600 hover:bg-orange-700 rounded-full p-2"
-              >
-                {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-              </button>
-              <button
-                onClick={() => setCurrentTime(Math.min(sessionData.sessionDetails.duration, currentTime + 10))}
-                className="text-gray-300 hover:text-white"
-              >
-                <SkipForward size={18} />
-              </button>
+            {/* Session Info */}
+            <div className="text-right">
+              <p className="text-sm text-gray-400">Recording ID: {recordingId}</p>
+              <p className="text-xs text-gray-500">
+                Duration: {formatDuration((sessionData.sessionDetails.duration || 0) * 1000)}
+              </p>
             </div>
-
-            {/* Speed Control */}
-            <div className="flex items-center space-x-2">
-              {[0.5, 1, 1.5, 2].map(speed => (
-                <button
-                  key={speed}
-                  onClick={() => handleSpeedChange(speed)}
-                  className={`px-2 py-1 rounded text-sm ${
-                    playbackSpeed === speed
-                      ? 'bg-orange-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:text-white'
-                  }`}
-                >
-                  {speed}x
-                </button>
-              ))}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-2">
-              <button className="text-gray-300 hover:text-white p-2">
-                <Download size={18} />
-              </button>
-              <button className="text-gray-300 hover:text-white p-2">
-                <Share2 size={18} />
-              </button>
-              <button className="text-gray-300 hover:text-white p-2">
-                <Settings size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mt-4">
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-400">{formatTime(currentTime)}</span>
-            <div className="flex-1 bg-gray-600 rounded-full h-2">
-              <div
-                className="bg-orange-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(currentTime / sessionData.sessionDetails.duration) * 100}%` }}
-              ></div>
-            </div>
-            <span className="text-sm text-gray-400">{formatTime(sessionData.sessionDetails.duration)}</span>
           </div>
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-120px)]">
+      <div className="flex h-[calc(100vh-80px)]">
         {/* Main Replay Area */}
-        <div className="flex-1 bg-gray-800 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-2xl" style={{ width: '1200px', height: '675px' }}>
+        <div className="flex-1 bg-gray-800 flex items-center justify-center p-6">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-7xl h-full max-h-[85vh]">
             {/* Browser Frame */}
             <div className="bg-gray-200 rounded-t-lg px-4 py-2 flex items-center space-x-2">
               <div className="flex space-x-1">
@@ -230,14 +165,16 @@ const SessionReplay = () => {
                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>
               </div>
               <div className="flex-1 bg-white rounded px-3 py-1 text-sm text-gray-600">
-                {sessionData.pageJourney[Math.floor(currentTime / 60)]?.page || sessionData.sessionDetails.entryPage}
+                {sessionData.sessionDetails.entryPage}
               </div>
             </div>
             
             {/* rrweb Player Content */}
-            <div className="h-full bg-white rounded-b-lg overflow-hidden relative">
+            <div className="bg-white rounded-b-lg overflow-auto relative" style={{ height: 'calc(100% - 48px)' }}>
               {sessionData.recordingEvents && sessionData.recordingEvents.length > 0 ? (
-                <SessionPlayer events={sessionData.recordingEvents} />
+                <div className="w-full h-full min-h-0">
+                  <SessionPlayer events={sessionData.recordingEvents} />
+                </div>
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
@@ -246,26 +183,17 @@ const SessionReplay = () => {
                       This session doesn't have rrweb recording data available.
                     </p>
                     
-                    {/* Fallback: Current Page Indicator */}
+                    {/* Session Overview */}
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                       <h3 className="font-semibold text-blue-800">
-                        Current Page: {sessionData.pageJourney[Math.floor(currentTime / 60)]?.page || sessionData.sessionDetails.entryPage}
+                        Entry Page: {sessionData.sessionDetails.entryPage}
                       </h3>
                       <p className="text-blue-600 text-sm mt-1">
-                        Time spent: {formatDuration(sessionData.pageJourney[Math.floor(currentTime / 60)]?.duration || 0)}
+                        Total Duration: {formatDuration((sessionData.sessionDetails.duration || 0) * 1000)}
                       </p>
-                    </div>
-
-                    {/* Recent Event Indicators */}
-                    <div className="space-y-2">
-                      {sessionData.events
-                        .filter(event => event.timestamp <= currentTime * 1000 && event.timestamp > (currentTime - 5) * 1000)
-                        .map((event, index) => (
-                          <div key={index} className="bg-green-100 border border-green-300 rounded p-2 text-green-800 text-sm">
-                            <strong>{event.type.replace('_', ' ').toUpperCase()}</strong>
-                            {event.element && ` on ${event.element}`}
-                          </div>
-                        ))}
+                      <p className="text-blue-600 text-sm">
+                        Total Events: {sessionData.events?.length || 0}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -275,7 +203,7 @@ const SessionReplay = () => {
         </div>
 
         {/* Right Sidebar - Session Details */}
-        <div className="w-80 bg-gray-800 border-l border-gray-700 overflow-y-auto">
+        <div className="w-72 bg-gray-800 border-l border-gray-700 overflow-y-auto">
           <div className="p-4">
             {/* Tab Navigation */}
             <div className="flex space-x-1 mb-4">
@@ -335,10 +263,6 @@ const SessionReplay = () => {
                     Session Summary
                   </h3>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Duration:</span>
-                      <span className="text-white">{formatTime(sessionData.sessionDetails.duration)}</span>
-                    </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Page Views:</span>
                       <span className="text-white">{sessionData.sessionDetails.totalPageViews}</span>
@@ -417,11 +341,7 @@ const SessionReplay = () => {
                   {sessionData.events.map((event, index) => (
                     <div 
                       key={index} 
-                      className={`p-3 rounded text-sm ${
-                        event.timestamp <= currentTime * 1000 
-                          ? 'bg-gray-600 border border-orange-500' 
-                          : 'bg-gray-700'
-                      }`}
+                      className="p-3 rounded text-sm bg-gray-700 hover:bg-gray-600"
                     >
                       <div className="flex justify-between items-start mb-1">
                         <span className="text-white font-medium">
