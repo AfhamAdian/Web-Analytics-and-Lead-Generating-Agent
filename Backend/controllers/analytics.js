@@ -3,6 +3,8 @@
 
 const supabase = require('../supabaseClient');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 // ===== HELPER FUNCTIONS (previously in utils/) =====
 
@@ -404,6 +406,261 @@ async function createSystemInfoEvent(systemData) {
 
 // ===== CONTROLLER FUNCTIONS =====
 
+// Handle session creation for rrweb recording integration
+async function handleSessionCreation(req, res) {
+  try {
+    console.log('🎬 Creating session for rrweb recording:', req.body);
+
+    const { siteId, sessionId, uniqueUserId, url, userAgent, timestamp } = req.body;
+
+    if (!siteId || !sessionId || !uniqueUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: siteId, sessionId, uniqueUserId'
+      });
+    }
+
+    // Create or get visitor first
+    const { visitor, error: visitorError } = await getOrCreateVisitor(
+      uniqueUserId,
+      timestamp || Date.now(),
+      {
+        userAgent: userAgent || req.headers['user-agent'],
+        url: url || req.headers.referer
+      }
+    );
+
+    if (visitorError) {
+      console.error('Error creating/getting visitor:', visitorError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create visitor',
+        error: visitorError.message
+      });
+    }
+
+    // Create session
+    const { session, error: sessionError, isNew } = await getOrCreateSession(
+      sessionId,
+      uniqueUserId,
+      siteId,
+      timestamp || Date.now(),
+      {
+        userAgent: userAgent || req.headers['user-agent'],
+        landingPage: url || req.headers.referer
+      }
+    );
+
+    if (sessionError) {
+      console.error('Error creating session:', sessionError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create session',
+        error: sessionError.message
+      });
+    }
+
+    console.log(`✅ Session ${isNew ? 'created' : 'retrieved'} successfully:`, session.session_id);
+
+    res.json({
+      success: true,
+      message: `Session ${isNew ? 'created' : 'retrieved'} successfully`,
+      data: {
+        sessionId: session.session_id,
+        visitorId: visitor.uid,
+        isNewSession: isNew,
+        isNewVisitor: visitorError ? false : true
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in handleSessionCreation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+}
+
+// Handle session recording data from rrweb
+async function handleSessionRecording(req, res) {
+  try {
+    console.log('🎬 Received session recording data from:', req.headers['user-agent'] || 'Unknown');
+    console.log('📡 Request method:', req.method);
+    console.log('📋 Content-Type:', req.headers['content-type']);
+    console.log('📏 Content-Length:', req.headers['content-length'] || 'Unknown');
+    
+    // Log payload size for monitoring
+    const payloadSize = JSON.stringify(req.body).length;
+    console.log(`📦 Payload size: ${(payloadSize / 1024 / 1024).toFixed(2)} MB`);
+    
+    let sessionData = req.body;
+    
+    // Handle case where data might be sent as raw body (from sendBeacon)
+    if (typeof sessionData === 'string') {
+      sessionData = JSON.parse(sessionData);
+    }
+    
+    console.log('=====================================');
+    console.log('🎬 SESSION RECORDING DATA:');
+    console.log(`⏱️ Duration: ${sessionData.duration}ms (${Math.round(sessionData.duration / 1000)}s)`);
+    console.log(`📊 Events: ${sessionData.eventCount || sessionData.events?.length || 0}`);
+    console.log('=====================================');
+
+    // Sanitize session ID for database
+    const cleanSessionId = sanitizeSessionId(sessionData.sessionId);
+    console.log(`🔧 Session ID sanitized: ${sessionData.sessionId} → ${cleanSessionId}`);
+
+    // Prepare metadata
+    const metadata = {
+      userAgent: req.headers['user-agent'],
+      ip: req.ip || req.connection.remoteAddress,
+      duration: sessionData.duration,
+      eventCount: sessionData.eventCount || sessionData.events?.length || 0,
+      truncated: sessionData.truncated || false,
+      timestamp: new Date().toISOString()
+    };
+
+    // Save to Supabase session_recordings table
+    const { data: recordingData, error: recordingError } = await supabase
+      .from('session_recordings')
+      .insert({
+        session_id: cleanSessionId,
+        events: sessionData.events || [],
+        metadata: metadata,
+        file_size: payloadSize
+      })
+      .select();
+
+    if (recordingError) {
+      console.error('❌ Error saving session recording to database:', recordingError);
+      throw recordingError;
+    }
+    console.log('✅ Session recording saved to database:', recordingData[0]?.id);
+
+    res.json({
+      success: true,
+      message: 'Session recording saved successfully',
+      sessionId: sessionData.sessionId,
+      recordingId: recordingData[0]?.id,
+      eventCount: sessionData.eventCount || sessionData.events?.length || 0,
+      fileSize: payloadSize
+    });
+
+  } catch (error) {
+    console.error('❌ Error handling session recording:', error);
+    console.error('Request body:', req.body);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process session recording',
+      error: error.message
+    });
+  }
+}
+
+// Get session recording by session ID
+async function getSessionRecording(req, res) {
+  try {
+    const { sessionId } = req.params;
+    
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Session ID is required'
+      });
+    }
+
+    // Sanitize session ID
+    const cleanSessionId = sanitizeSessionId(sessionId);
+    console.log(`🔍 Retrieving session recording for: ${sessionId} → ${cleanSessionId}`);
+
+    // Get session recording from database
+    const { data: recordingData, error: recordingError } = await supabase
+      .from('session_recordings')
+      .select('*')
+      .eq('session_id', cleanSessionId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (recordingError) {
+      console.error('❌ Error fetching session recording:', recordingError);
+      throw recordingError;
+    }
+
+    if (!recordingData || recordingData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session recording not found'
+      });
+    }
+
+    console.log('✅ Session recording retrieved:', recordingData[0].id);
+
+    res.json({
+      success: true,
+      message: 'Session recording retrieved successfully',
+      data: recordingData[0]
+    });
+
+  } catch (error) {
+    console.error('❌ Error retrieving session recording:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve session recording',
+      error: error.message
+    });
+  }
+}
+
+// Get all session recordings with pagination
+async function getAllSessionRecordings(req, res) {
+  try {
+    const { page = 1, limit = 10, sessionId } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('session_recordings')
+      .select('id, session_id, metadata, file_size, created_at, updated_at')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    // Filter by session ID if provided
+    if (sessionId) {
+      const cleanSessionId = sanitizeSessionId(sessionId);
+      query = query.eq('session_id', cleanSessionId);
+    }
+
+    const { data: recordings, error: recordingsError } = await query;
+
+    if (recordingsError) {
+      console.error('❌ Error fetching session recordings:', recordingsError);
+      throw recordingsError;
+    }
+
+    console.log(`✅ Retrieved ${recordings.length} session recordings`);
+
+    res.json({
+      success: true,
+      message: 'Session recordings retrieved successfully',
+      data: recordings,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        count: recordings.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error retrieving session recordings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve session recordings',
+      error: error.message
+    });
+  }
+}
+
 // Handle user system information collection
 async function handleUserSystemInfo(req, res) {
   try {
@@ -430,8 +687,30 @@ async function handleUserSystemInfo(req, res) {
       });
     }
 
+    // Create or get session first, then update with system information
+    const { session, error: sessionError, isNew } = await getOrCreateSession(
+      sessionId,
+      uniqueUserId,
+      siteId,
+      Date.now(),
+      {
+        userAgent: userAgent || null,
+        landingPage: req.headers.referer || null
+      }
+    );
+
+    if (sessionError) {
+      console.error('❌ Error creating/getting session:', sessionError);
+      return res.status(500).json({ 
+        message: 'Failed to create session',
+        error: sessionError.message 
+      });  
+    }
+
+    console.log(`✅ Session ${isNew ? 'created' : 'found'} for system info:`, sessionId);
+
     // Update session with system information
-    const { session: updatedSession, error: sessionError } = await updateSessionSystemInfo(
+    const { session: updatedSession, error: updateError } = await updateSessionSystemInfo(
       sessionId,
       {
         browser: browser || null,
@@ -440,12 +719,9 @@ async function handleUserSystemInfo(req, res) {
       }
     );
 
-    if (sessionError && sessionError.code !== 'PGRST116') {
-      console.error('❌ Error updating session:', sessionError);
-      return res.status(500).json({ 
-        message: 'Failed to update session with system information',
-        error: sessionError.message 
-      });
+    if (updateError) {
+      console.warn('⚠️ Warning: Could not update session with system info:', updateError.message);
+      // Don't fail the request, continue with visitor updates
     }
 
     // Parse location from timezone and update visitor
@@ -709,6 +985,10 @@ async function handleClickEvents(req, res) {
 }
 
 module.exports = {
+  handleSessionCreation,
+  handleSessionRecording,
+  getSessionRecording,
+  getAllSessionRecordings,
   handleUserSystemInfo,
   handlePageViews,
   handleScrollDepth,

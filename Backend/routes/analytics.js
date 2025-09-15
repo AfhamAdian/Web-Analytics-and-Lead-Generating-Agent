@@ -7,6 +7,12 @@ const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analytics');
 
+// Session creation endpoint for rrweb integration
+router.post('/session', analyticsController.handleSessionCreation);
+
+// Session recording endpoint for rrweb data
+router.post('/session-recording', analyticsController.handleSessionRecording);
+
 // User system information endpoint
 router.post('/user-system-info', analyticsController.handleUserSystemInfo);
 
@@ -21,5 +27,9 @@ router.post('/sessiontime', analyticsController.handleSessionTime);
 
 // Click events tracking endpoint
 router.post('/click-events', analyticsController.handleClickEvents);
+
+// Session recording retrieval endpoints
+router.get('/session-recording/:sessionId', analyticsController.getSessionRecording);
+router.get('/session-recordings', analyticsController.getAllSessionRecordings);
 
 module.exports = router;
