@@ -5,42 +5,11 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { Globe, TrendingUp, Users, Eye, MousePointer, Calendar, Clock, MapPin, Shield, CheckCircle, XCircle, BarChart3, Monitor, Smartphone, Tablet } from 'lucide-react';
+import { Sidebar, DashboardHeader, LoadingScreen } from '../../Components/Dashboard';
 
-// Mock components for demo
-const Sidebar = ({ sites }) => (
-  <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-    <div className="p-6 border-b border-gray-100">
-      <h2 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-        Analytics Pro
-      </h2>
-    </div>
-    <nav className="flex-1 p-4 space-y-2">
-      {sites?.map((site, index) => (
-        <div key={index} className="p-3 rounded-lg hover:bg-gray-50 transition-colors">
-          <div className="font-medium text-gray-900">{site.name || `Site ${index + 1}`}</div>
-          <div className="text-sm text-gray-500">{site.domain || 'example.com'}</div>
-        </div>
-      ))}
-    </nav>
-  </div>
-);
+import api from '../../Services/api';
 
-const DashboardHeader = ({ user, onLogout }) => (
-  <header className="bg-white border-b border-gray-200 px-6 py-4">
-    <div className="flex items-center justify-between">
-      <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-      <div className="flex items-center space-x-4">
-        <span className="text-gray-700">Welcome, {user}</span>
-        <button 
-          onClick={onLogout}
-          className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-        >
-          Logout
-        </button>
-      </div>
-    </div>
-  </header>
-);
+
 
 const DashboardOverview = ({ stats }) => {
   const statCards = [
@@ -117,52 +86,143 @@ const AnalyticsChart = ({ chartData }) => (
   </div>
 );
 
-const LoadingScreen = () => (
-  <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
-    <div className="text-center">
-      <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-pulse mx-auto mb-4"></div>
-      <p className="text-gray-600">Loading your analytics...</p>
-    </div>
-  </div>
-);
-
 export default function WebAppDashboard() {
-  const [user, setUser] = useState('John Doe');
-  const [sites, setSites] = useState([
-    { name: 'Main Website', domain: 'example.com' },
-    { name: 'Blog', domain: 'blog.example.com' }
-  ]);
-  const [stats, setStats] = useState({
-    totalVisitors: 12453,
-    pageViews: 45678,
-    sessions: 8901,
-    bounceRate: 34
-  });
-  const [chartData, setChartData] = useState([
-    { name: 'Jan', visitors: 4000, pageViews: 2400 },
-    { name: 'Feb', visitors: 3000, pageViews: 1398 },
-    { name: 'Mar', visitors: 2000, pageViews: 9800 },
-    { name: 'Apr', visitors: 2780, pageViews: 3908 },
-    { name: 'May', visitors: 1890, pageViews: 4800 },
-    { name: 'Jun', visitors: 2390, pageViews: 3800 }
-  ]);
-  const [dashboardAnalytics, setDashboardAnalytics] = useState({
-    dailyTrafficData: [
-      { date: '2024-01-01', visitors: 1200, sessions: 800, pageViews: 2400 },
-      { date: '2024-01-02', visitors: 1500, sessions: 900, pageViews: 2800 },
-      { date: '2024-01-03', visitors: 1100, sessions: 700, pageViews: 2200 }
-    ],
-    browserStats: { Chrome: 5432, Firefox: 2341, Safari: 1876, Edge: 987 },
-    deviceStats: { Desktop: 6543, Mobile: 4321, Tablet: 1098 },
-    countryStats: { 'United States': 4500, 'United Kingdom': 2300, 'Germany': 1800, 'Canada': 1200 },
-    regionStats: { 'California': 2100, 'New York': 1800, 'Texas': 1200, 'London': 900 },
-    cookieConsent: { accepted: 8765, rejected: 2345 }
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [sites, setSites] = useState([]);
+  const [stats, setStats] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [dashboardAnalytics, setDashboardAnalytics] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const handleLogout = () => {
-    alert('Logout clicked - would redirect to login page');
+  useEffect(() => {
+    async function fetchUserData() {
+      const startTime = Date.now();
+      const minLoadingTime = 800; // Minimum loading time in milliseconds
+      
+      try {
+        setIsLoading(true);
+        setError(null);
+        console.log('Fetching dashboard data...');
+        const res = await api.get('/dashboard');
+        const data = res.data;
+        console.log('Dashboard data:', data);
+        setUser(data.userName);
+        setSites(data.sites);
+        setStats(data.stats);
+        setChartData(data.chartData);
+        
+        // Fetch additional analytics data for enhanced dashboard
+        if (data.sites && data.sites.length > 0) {
+          const analyticsPromises = data.sites.map(site => 
+            api.get(`/sites/${site.site_id}`).catch(err => {
+              console.warn(`Failed to fetch analytics for site ${site.site_id}:`, err);
+              return null;
+            })
+          );
+          
+          const analyticsResults = await Promise.all(analyticsPromises);
+          const validAnalytics = analyticsResults.filter(result => result !== null);
+          
+          // Aggregate analytics data
+          const aggregatedAnalytics = aggregateAnalyticsData(validAnalytics);
+          setDashboardAnalytics(aggregatedAnalytics);
+        }
+
+        console.log('Dashboard data fetched successfully:', data);
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        setError(err.response?.data?.message || 'Failed to load dashboard data');
+      } finally {
+        // Ensure minimum loading time has passed
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
+        
+        setTimeout(() => {
+          setIsLoading(false);
+        }, remainingTime);
+      }
+    }
+    fetchUserData();
+  }, []);
+
+  const aggregateAnalyticsData = (analyticsResults) => {
+    if (!analyticsResults || analyticsResults.length === 0) return null;
+
+    // Combine daily traffic data from all sites
+    const allDailyData = {};
+    let totalBrowserStats = {};
+    let totalDeviceStats = {};
+    let totalCountryStats = {};
+    let totalRegionStats = {};
+    let totalOsStats = {};
+    let totalCookieConsent = { accepted: 0, rejected: 0 };
+
+    analyticsResults.forEach(result => {
+      if (!result || !result.data) return;
+
+      const { dailyTrafficData, browserStats, deviceStats, countryStats, regionStats, osStats, cookieConsent } = result.data;
+
+      // Aggregate daily traffic data
+      if (dailyTrafficData) {
+        dailyTrafficData.forEach(day => {
+          if (!allDailyData[day.date]) {
+            allDailyData[day.date] = { date: day.date, visitors: 0, sessions: 0, pageViews: 0 };
+          }
+          allDailyData[day.date].visitors += day.visitors;
+          allDailyData[day.date].sessions += day.sessions;
+          allDailyData[day.date].pageViews += day.pageViews;
+        });
+      }
+
+      // Aggregate browser stats
+      Object.entries(browserStats || {}).forEach(([browser, count]) => {
+        totalBrowserStats[browser] = (totalBrowserStats[browser] || 0) + count;
+      });
+
+      // Aggregate device stats
+      Object.entries(deviceStats || {}).forEach(([device, count]) => {
+        totalDeviceStats[device] = (totalDeviceStats[device] || 0) + count;
+      });
+
+      // Aggregate country stats
+      Object.entries(countryStats || {}).forEach(([country, count]) => {
+        totalCountryStats[country] = (totalCountryStats[country] || 0) + count;
+      });
+
+      // Aggregate region stats
+      Object.entries(regionStats || {}).forEach(([region, count]) => {
+        totalRegionStats[region] = (totalRegionStats[region] || 0) + count;
+      });
+
+      // Aggregate OS stats
+      Object.entries(osStats || {}).forEach(([os, count]) => {
+        totalOsStats[os] = (totalOsStats[os] || 0) + count;
+      });
+
+      // Aggregate cookie consent data
+      if (cookieConsent) {
+        totalCookieConsent.accepted = (totalCookieConsent.accepted || 0) + (cookieConsent.accepted || 0);
+        totalCookieConsent.rejected = (totalCookieConsent.rejected || 0) + (cookieConsent.rejected || 0);
+      }
+    });
+
+    // Convert daily data object to array and sort by date
+    const dailyTrafficArray = Object.values(allDailyData).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return {
+      dailyTrafficData: dailyTrafficArray,
+      browserStats: totalBrowserStats,
+      deviceStats: totalDeviceStats,
+      countryStats: totalCountryStats,
+      regionStats: totalRegionStats,
+      osStats: totalOsStats,
+      cookieConsent: totalCookieConsent
+    };
+  };
+
+  const handleRetry = () => {
+    window.location.reload();
   };
 
   // Modern metric card component
@@ -205,8 +265,32 @@ export default function WebAppDashboard() {
     );
   };
 
+  // Show loading screen while data is being fetched
   if (isLoading) {
     return <LoadingScreen />;
+  }
+
+  // Show error state if there's an error
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={handleRetry}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -215,7 +299,7 @@ export default function WebAppDashboard() {
         <Sidebar sites={sites} />
 
         <div className="flex-1">
-          <DashboardHeader user={user} onLogout={handleLogout} />
+          <DashboardHeader user={user} />
 
           <main className="p-8">
             <div className="max-w-7xl mx-auto space-y-8">
@@ -227,7 +311,9 @@ export default function WebAppDashboard() {
                     <p className="text-blue-100 text-lg">Track your website performance in real-time</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-3xl font-bold">{stats.totalVisitors.toLocaleString()}</div>
+                    <div className="text-3xl font-bold">
+                      {stats?.find(s => s.title === 'Active Users')?.value || '0'}
+                    </div>
                     <div className="text-blue-100">Total Visitors</div>
                   </div>
                 </div>
@@ -235,45 +321,39 @@ export default function WebAppDashboard() {
 
               {/* Key Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <MetricCard
-                  title="Page Views"
-                  value={stats.pageViews.toLocaleString()}
-                  change="+12.5%"
-                  trend="up"
-                  icon={Eye}
-                  color="from-green-500 to-green-600"
-                />
-                <MetricCard
-                  title="Sessions"
-                  value={stats.sessions.toLocaleString()}
-                  change="+8.2%"
-                  trend="up"
-                  icon={Clock}
-                  color="from-purple-500 to-purple-600"
-                />
-                <MetricCard
-                  title="Bounce Rate"
-                  value={`${stats.bounceRate}%`}
-                  change="-2.1%"
-                  trend="down"
-                  icon={TrendingUp}
-                  color="from-orange-500 to-orange-600"
-                />
-                <MetricCard
-                  title="Avg. Session"
-                  value="3m 24s"
-                  change="+15s"
-                  trend="up"
-                  icon={Calendar}
-                  color="from-blue-500 to-blue-600"
-                />
+                {stats?.map((stat, index) => {
+                  const iconMap = {
+                    'Total Sites': Users,
+                    'Active Users': Users,
+                    'New Leads': Eye,
+                    'Total Page Views': Clock
+                  };
+                  const colorMap = [
+                    'from-green-500 to-green-600',
+                    'from-purple-500 to-purple-600',
+                    'from-orange-500 to-orange-600',
+                    'from-blue-500 to-blue-600'
+                  ];
+                  
+                  return (
+                    <MetricCard
+                      key={index}
+                      title={stat.title}
+                      value={stat.value}
+                      change={index === 0 ? "+12.5%" : index === 1 ? "+8.2%" : index === 2 ? "+15.3%" : "+5.1%"}
+                      trend="up"
+                      icon={iconMap[stat.title] || Users}
+                      color={colorMap[index % 4]}
+                    />
+                  );
+                })}
               </div>
 
-              {/* Analytics Chart */}
-              <AnalyticsChart chartData={chartData} />
-
-              {/* Geographic Analytics - Redesigned */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Enhanced Analytics Section */}
+              {dashboardAnalytics && (
+                <>
+                  {/* Geographic Analytics - Redesigned */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
                   <div className="flex items-center mb-6">
                     <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl mr-4">
@@ -504,6 +584,8 @@ export default function WebAppDashboard() {
                   </div>
                 </div>
               </div>
+                </>
+              )}
             </div>
           </main>
         </div>
