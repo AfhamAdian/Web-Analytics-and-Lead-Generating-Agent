@@ -8,6 +8,7 @@ import Profile from './Pages/Profile/Profile';
 import SiteDetails from './Pages/SiteDetails/SiteDetails';
 import AddSite from './Pages/AddSite/AddSite';
 import NotFound from './Pages/NotFound/NotFound';
+import SessionReplay from './Pages/SessionReplay/SessionReplay';
 
 function App() {
   const isAuthenticated = !!localStorage.getItem('token');
@@ -20,6 +21,7 @@ function App() {
         <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/profile" element={isAuthenticated ? <Profile /> : <Navigate to="/login" />} />
         <Route path="/site/:siteId" element={isAuthenticated ? <SiteDetails /> : <Navigate to="/login" />} />
+        <Route path="/sites/:siteId/session/:sessionId" element={isAuthenticated ? <SessionReplay /> : <Navigate to="/login" />} />
         <Route path="/add-site" element={isAuthenticated ? <AddSite /> : <Navigate to="/login" />} />
         <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
         <Route path="/404" element={<NotFound />} />

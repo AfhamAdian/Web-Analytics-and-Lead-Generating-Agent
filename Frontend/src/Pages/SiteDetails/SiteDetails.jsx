@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Users, Eye, MousePointer, UserCheck, Globe, Monitor, Smartphone, Download, Star, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Users, Eye, MousePointer, UserCheck, Globe, Monitor, Smartphone, Download, Star, TrendingUp, Play } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../../Services/api';
@@ -14,6 +14,8 @@ const SiteDetails = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [visitors, setVisitors] = useState([]);
   const [visitorsLoading, setVisitorsLoading] = useState(false);
+  const [sessions, setSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   useEffect(() => {
     const fetchSiteData = async () => {
@@ -50,6 +52,165 @@ const SiteDetails = () => {
       setError('Failed to load visitors data');
     } finally {
       setVisitorsLoading(false);
+    }
+  };
+
+  // Dummy session data for Session Replay feature
+  const dummySessionData = [
+    {
+      sessionId: 'session_abc123def456',
+      visitorId: 'visitor_789xyz012',
+      visitorInfo: {
+        name: 'John Smith',
+        email: 'john.smith@example.com',
+        location: 'New York, US',
+        isLead: true
+      },
+      engagement: {
+        pageViews: 12,
+        duration: 845, // seconds
+        clicks: 23,
+        scrollEvents: 45,
+        formSubmissions: 2
+      },
+      sessionDetails: {
+        startTime: '2025-09-16T10:30:00Z',
+        endTime: '2025-09-16T10:44:05Z',
+        browser: 'Chrome 128',
+        device: 'Desktop',
+        os: 'Windows 11',
+        entryPage: '/home',
+        exitPage: '/contact',
+        pagesVisited: ['/home', '/products', '/about', '/pricing', '/contact']
+      },
+      leadScore: 95
+    },
+    {
+      sessionId: 'session_ghi789jkl012',
+      visitorId: 'visitor_345mno678',
+      visitorInfo: {
+        name: 'Sarah Johnson',
+        email: 'sarah.j@company.com',
+        location: 'California, US',
+        isLead: true
+      },
+      engagement: {
+        pageViews: 8,
+        duration: 623,
+        clicks: 18,
+        scrollEvents: 32,
+        formSubmissions: 1
+      },
+      sessionDetails: {
+        startTime: '2025-09-16T14:15:00Z',
+        endTime: '2025-09-16T14:25:23Z',
+        browser: 'Safari 17',
+        device: 'MacBook',
+        os: 'macOS Sonoma',
+        entryPage: '/products',
+        exitPage: '/demo-request',
+        pagesVisited: ['/products', '/features', '/case-studies', '/demo-request']
+      },
+      leadScore: 87
+    },
+    {
+      sessionId: 'session_pqr345stu678',
+      visitorId: 'visitor_901vwx234',
+      visitorInfo: {
+        name: 'Anonymous User',
+        email: null,
+        location: 'London, UK',
+        isLead: false
+      },
+      engagement: {
+        pageViews: 5,
+        duration: 234,
+        clicks: 8,
+        scrollEvents: 15,
+        formSubmissions: 0
+      },
+      sessionDetails: {
+        startTime: '2025-09-16T16:45:00Z',
+        endTime: '2025-09-16T16:48:54Z',
+        browser: 'Firefox 118',
+        device: 'Mobile',
+        os: 'Android 14',
+        entryPage: '/blog',
+        exitPage: '/blog/article-1',
+        pagesVisited: ['/blog', '/blog/article-1']
+      },
+      leadScore: 25
+    },
+    {
+      sessionId: 'session_yza567bcd890',
+      visitorId: 'visitor_123efg456',
+      visitorInfo: {
+        name: 'Michael Chen',
+        email: 'michael.chen@tech.co',
+        location: 'Singapore, SG',
+        isLead: true
+      },
+      engagement: {
+        pageViews: 15,
+        duration: 1245,
+        clicks: 34,
+        scrollEvents: 67,
+        formSubmissions: 3
+      },
+      sessionDetails: {
+        startTime: '2025-09-16T09:20:00Z',
+        endTime: '2025-09-16T09:40:45Z',
+        browser: 'Edge 117',
+        device: 'Desktop',
+        os: 'Windows 10',
+        entryPage: '/solutions',
+        exitPage: '/get-started',
+        pagesVisited: ['/solutions', '/enterprise', '/pricing', '/testimonials', '/get-started']
+      },
+      leadScore: 112
+    },
+    {
+      sessionId: 'session_hij123klm456',
+      visitorId: 'visitor_789opq012',
+      visitorInfo: {
+        name: 'Emily Rodriguez',
+        email: 'e.rodriguez@startup.io',
+        location: 'Austin, US',
+        isLead: true
+      },
+      engagement: {
+        pageViews: 7,
+        duration: 456,
+        clicks: 15,
+        scrollEvents: 28,
+        formSubmissions: 1
+      },
+      sessionDetails: {
+        startTime: '2025-09-16T13:10:00Z',
+        endTime: '2025-09-16T13:17:36Z',
+        browser: 'Chrome 128',
+        device: 'Tablet',
+        os: 'iPadOS 17',
+        entryPage: '/features',
+        exitPage: '/contact',
+        pagesVisited: ['/features', '/integrations', '/support', '/contact']
+      },
+      leadScore: 73
+    }
+  ];
+
+  const fetchSessions = async () => {
+    try {
+      setSessionsLoading(true);
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use dummy data for now
+      setSessions(dummySessionData);
+    } catch (err) {
+      console.error('Error fetching sessions:', err);
+      setError('Failed to load sessions data');
+    } finally {
+      setSessionsLoading(false);
     }
   };
 
@@ -232,6 +393,22 @@ const SiteDetails = () => {
               >
                 <Star className="h-4 w-4 inline mr-1" />
                 Visitors by Lead Score
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('sessions');
+                  if (sessions.length === 0) {
+                    fetchSessions();
+                  }
+                }}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'sessions'
+                    ? 'border-orange-500 text-orange-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Play className="h-4 w-4 inline mr-1" />
+                Session Replay
               </button>
             </nav>
           </div>
@@ -900,6 +1077,238 @@ const SiteDetails = () => {
                             <tr>
                               <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
                                 No visitors data available
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === 'sessions' && (
+              <>
+                {/* Session Replay Header */}
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">Session Replay</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Watch user interactions and behavior recordings for detailed analysis
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <Play className="h-4 w-4" />
+                    <span>{sessions.length} recorded sessions</span>
+                  </div>
+                </div>
+
+                {/* Session Replay Info Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-blue-500 rounded-lg">
+                        <Play className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-700">Total Sessions</p>
+                        <p className="text-xl font-bold text-gray-900">{sessions.length}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-green-500 rounded-lg">
+                        <UserCheck className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-700">Lead Sessions</p>
+                        <p className="text-xl font-bold text-gray-900">
+                          {sessions.filter(s => s.visitorInfo.isLead).length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-purple-500 rounded-lg">
+                        <TrendingUp className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-700">Avg Duration</p>
+                        <p className="text-xl font-bold text-gray-900">
+                          {sessions.length > 0 
+                            ? Math.round(sessions.reduce((sum, s) => sum + s.engagement.duration, 0) / sessions.length / 60)
+                            : 0}m
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-orange-500 rounded-lg">
+                        <MousePointer className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-gray-700">Avg Clicks</p>
+                        <p className="text-xl font-bold text-gray-900">
+                          {sessions.length > 0 
+                            ? Math.round(sessions.reduce((sum, s) => sum + s.engagement.clicks, 0) / sessions.length)
+                            : 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sessions Table */}
+                {sessionsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Loading session recordings...</p>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Session ID
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Visitor Info
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Engagement
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Session Details
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Lead Score
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {sessions.map((session) => (
+                            <tr key={session.sessionId} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-mono text-gray-900">
+                                    {session.sessionId.substring(8, 20)}...
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(session.sessionDetails.startTime).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  <div className="flex items-center">
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {session.visitorInfo.name}
+                                    </span>
+                                    {session.visitorInfo.isLead && (
+                                      <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                        Lead
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-sm text-gray-500">
+                                    {session.visitorInfo.email || 'Anonymous'}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    {session.visitorInfo.location}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm">
+                                  <div className="flex items-center space-x-4 text-gray-900">
+                                    <span title="Page Views">
+                                      <Eye className="h-4 w-4 inline mr-1" />
+                                      {session.engagement.pageViews}
+                                    </span>
+                                    <span title="Duration">
+                                      ⏱️ {Math.round(session.engagement.duration / 60)}m
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-4 text-gray-500 mt-1">
+                                    <span title="Clicks">
+                                      <MousePointer className="h-3 w-3 inline mr-1" />
+                                      {session.engagement.clicks}
+                                    </span>
+                                    <span title="Form Submissions">
+                                      📝 {session.engagement.formSubmissions}
+                                    </span>
+                                    <span title="Scroll Events">
+                                      📜 {session.engagement.scrollEvents}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm">
+                                  <div className="text-gray-900 font-medium">
+                                    {session.sessionDetails.browser}
+                                  </div>
+                                  <div className="text-gray-500">
+                                    {session.sessionDetails.device} • {session.sessionDetails.os}
+                                  </div>
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    {session.sessionDetails.entryPage} → {session.sessionDetails.exitPage}
+                                  </div>
+                                  <div className="text-xs text-gray-400">
+                                    {new Date(session.sessionDetails.startTime).toLocaleTimeString()} - {new Date(session.sessionDetails.endTime).toLocaleTimeString()}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex flex-col items-center">
+                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full w-fit ${
+                                    session.leadScore >= 100 ? 'text-red-600 bg-red-100' :
+                                    session.leadScore >= 70 ? 'text-orange-600 bg-orange-100' :
+                                    session.leadScore >= 40 ? 'text-yellow-600 bg-yellow-100' :
+                                    session.leadScore >= 20 ? 'text-blue-600 bg-blue-100' :
+                                    'text-gray-600 bg-gray-100'
+                                  }`}>
+                                    {session.leadScore >= 100 ? 'Hot' :
+                                     session.leadScore >= 70 ? 'Warm' :
+                                     session.leadScore >= 40 ? 'Medium' :
+                                     session.leadScore >= 20 ? 'Cold' : 'Unknown'}
+                                  </span>
+                                  <span className="text-lg font-bold text-gray-900 mt-1">
+                                    {session.leadScore}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <button
+                                  onClick={() => navigate(`/sites/${siteId}/session/${session.sessionId}`)}
+                                  className="flex items-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                                >
+                                  <Play className="h-4 w-4" />
+                                  <span>Replay</span>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {sessions.length === 0 && !sessionsLoading && (
+                            <tr>
+                              <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                                <div className="flex flex-col items-center py-8">
+                                  <Play className="h-12 w-12 text-gray-300 mb-3" />
+                                  <p>No session recordings available</p>
+                                  <p className="text-sm text-gray-400 mt-1">Sessions will appear here once users interact with your site</p>
+                                </div>
                               </td>
                             </tr>
                           )}
