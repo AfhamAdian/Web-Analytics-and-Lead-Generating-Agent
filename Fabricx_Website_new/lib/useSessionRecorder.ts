@@ -100,7 +100,7 @@ export const useSessionRecorder = () => {
       console.log(`📊 Sending all ${eventsToSend.length} events without truncation`);
       
       // Send to your backend
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/session-recording`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/session-recording`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -283,7 +283,7 @@ export const useSessionRecorder = () => {
         try {
           // Use sendBeacon with correct backend URL and proper format
           const blob = new Blob([JSON.stringify(sessionData)], { type: 'application/json' });
-          const success = navigator.sendBeacon(`${process.env.REACT_APP_API_URL}/api/session-recording`, blob);
+          const success = navigator.sendBeacon(`${process.env.NEXT_PUBLIC_API_URL}/api/session-recording`, blob);
 
           if (success) {
             console.log('✅ Session data sent via sendBeacon on page unload');
