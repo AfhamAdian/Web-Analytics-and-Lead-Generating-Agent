@@ -90,6 +90,12 @@ export const useSessionRecorder = () => {
     };
 
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        console.error('❌ NEXT_PUBLIC_API_URL environment variable is not set');
+        return;
+      }
+
       const payload = JSON.stringify(sessionData);
       const payloadSizeMB = (payload.length / 1024 / 1024).toFixed(2);
       
@@ -100,7 +106,7 @@ export const useSessionRecorder = () => {
       console.log(`📊 Sending all ${eventsToSend.length} events without truncation`);
       
       // Send to your backend
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/session-recording`, {
+      const response = await fetch(`${apiUrl}/api/session-recording`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,6 +129,12 @@ export const useSessionRecorder = () => {
   // Create analytics session when rrweb recording starts
   const createAnalyticsSession = useCallback(async (sessionId: string) => {
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        console.error('❌ NEXT_PUBLIC_API_URL environment variable is not set');
+        return;
+      }
+
       // Get or create uniqueUserId
       let uniqueUserId = localStorage.getItem('uniqueUserId');
       if (!uniqueUserId) {
@@ -136,7 +148,7 @@ export const useSessionRecorder = () => {
       }
 
       // Get or create the tracking session in your analytics backend
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/analytics/session`, {
+      const response = await fetch(`${apiUrl}/api/analytics/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -281,9 +293,15 @@ export const useSessionRecorder = () => {
         };
 
         try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+          if (!apiUrl) {
+            console.error('❌ NEXT_PUBLIC_API_URL environment variable is not set');
+            return;
+          }
+
           // Use sendBeacon with correct backend URL and proper format
           const blob = new Blob([JSON.stringify(sessionData)], { type: 'application/json' });
-          const success = navigator.sendBeacon(`${process.env.REACT_APP_API_URL}/api/session-recording`, blob);
+          const success = navigator.sendBeacon(`${apiUrl}/api/session-recording`, blob);
 
           if (success) {
             console.log('✅ Session data sent via sendBeacon on page unload');

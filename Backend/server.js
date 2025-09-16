@@ -1,8 +1,3 @@
-/**
- * Main Server File
- * Entry point for the Web Analytics and Lead Generation API
- */
-
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -10,6 +5,12 @@ const config = require('./config');
 
 // Create Express application
 const app = express();
+
+config.corsOptions = {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
 
 // Middleware setup
 app.use(morgan('dev')); // Logging middleware

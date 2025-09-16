@@ -522,7 +522,92 @@ async function handleSessionRecording(req, res) {
       timestamp: new Date().toISOString()
     };
 
-    // Save to Supabase session_recordings table
+    // First, ensure the session exists in the sessions table
+    const { data: existingSession, error: sessionCheckError } = await supabase
+      .from('sessions')
+      .select('session_id')
+      .eq('session_id', cleanSessionId);
+
+    if (sessionCheckError) {
+      console.error('❌ Error checking session existence:', sessionCheckError);
+    }
+
+    // If session doesn't exist, create it
+    if (!existingSession || existingSession.length === 0) {
+      console.log('📝 Session not found, creating session record first...');
+      
+      // Get or create visitor record
+      let visitorId = null;
+      const { data: visitorData, error: visitorError } = await supabase
+        .from('visitors')
+        .select('visitor_id')
+        .eq('site_id', '33966cba-5ec5-4c69-9079-c020ec5c5971') // Your site ID
+        .limit(1);
+
+      if (visitorError) {
+        console.error('❌ Error fetching visitor:', visitorError);
+      } else if (visitorData && visitorData.length > 0) {
+        visitorId = visitorData[0].visitor_id;
+      } else {
+        // Create a new visitor
+        const { data: newVisitor, error: newVisitorError } = await supabase
+          .from('visitors')
+          .insert({
+            site_id: '33966cba-5ec5-4c69-9079-c020ec5c5971',
+            unique_user_id: `user_${crypto.randomUUID()}`,
+            first_visit: new Date().toISOString(),
+            last_visit: new Date().toISOString(),
+            visit_count: 1,
+            lead_status: 'unknown'
+          })
+          .select()
+          .single();
+
+        if (newVisitorError) {
+          console.error('❌ Error creating visitor:', newVisitorError);
+        } else {
+          visitorId = newVisitor.visitor_id;
+          console.log('✅ Created new visitor:', visitorId);
+        }
+      }
+
+      // Create session record
+      const { data: newSession, error: newSessionError } = await supabase
+        .from('sessions')
+        .insert({
+          session_id: cleanSessionId,
+          site_id: '33966cba-5ec5-4c69-9079-c020ec5c5971',
+          visitor_id: visitorId,
+          started_at: new Date(sessionData.startTime || Date.now()).toISOString(),
+          ended_at: new Date(sessionData.endTime || Date.now()).toISOString(),
+          duration: sessionData.duration || 0,
+          page_views: 1,
+          bounce_rate: 0,
+          referrer: sessionData.referrer || null,
+          landing_page: sessionData.url || '/',
+          exit_page: sessionData.url || '/',
+          user_agent: sessionData.userAgent || metadata.userAgent,
+          ip_address: metadata.ip || '0.0.0.0',
+          country: null,
+          region: null,
+          city: null,
+          device_type: 'desktop',
+          browser: 'unknown',
+          os: 'unknown'
+        })
+        .select();
+
+      if (newSessionError) {
+        console.error('❌ Error creating session:', newSessionError);
+        throw newSessionError;
+      } else {
+        console.log('✅ Created session record:', cleanSessionId);
+      }
+    } else {
+      console.log('✅ Session already exists:', cleanSessionId);
+    }
+
+    // Now save to Supabase session_recordings table
     const { data: recordingData, error: recordingError } = await supabase
       .from('session_recordings')
       .insert({

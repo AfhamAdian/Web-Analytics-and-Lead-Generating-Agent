@@ -12,6 +12,7 @@ interface SessionManagerProps {
 /**
  * Session Manager Component
  * Handles automatic session recording and tracking
+ * Starts recording after 2 button clicks OR 50% scroll depth
  */
 const SessionManager = ({ 
   autoStart = true, 
@@ -24,13 +25,20 @@ const SessionManager = ({
     startRecording, 
     stopRecording, 
     eventCount,
+    saveSession,
     manualSave
   } = useSessionRecorder();
   
   const [isMounted, setIsMounted] = useState(false);
   const hasStartedRef = useRef(false);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  
+  // Tracking engagement metrics
+  const buttonClickCount = useRef(0);
+  const maxScrollDepth = useRef(0);
+  const hasReachedScrollThreshold = useRef(false);
 
   // Handle client-side mounting
   useEffect(() => {
@@ -61,6 +69,51 @@ const SessionManager = ({
     }, 10 * 60 * 1000); // 10 minutes
   };
 
+  // Start auto-save timer when recording starts
+  const startAutoSaveTimer = () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // Auto-save after 60 seconds of recording
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (isRecording && sessionId) {
+        debugLog('Auto-saving session after 60 seconds - keeping recording active');
+        // Use manualSave to save current state without stopping recording
+        if (typeof manualSave === 'function') {
+          await manualSave();
+          // Restart the timer for next auto-save
+          startAutoSaveTimer();
+        }
+      }
+    }, 60 * 1000); // 60 seconds
+  };
+
+  // Check if we should start recording based on engagement criteria
+  const checkEngagementThreshold = async () => {
+    if (hasStartedRef.current || isRecording) return;
+
+    const shouldStart = buttonClickCount.current >= 2 || hasReachedScrollThreshold.current;
+    
+    if (shouldStart) {
+      debugLog(`🎬 Starting session recording! Criteria met - Clicks: ${buttonClickCount.current}, Scroll threshold reached: ${hasReachedScrollThreshold.current}`);
+      await startRecording();
+      hasStartedRef.current = true;
+      resetInactivityTimer();
+      startAutoSaveTimer();
+    }
+  };
+
+  // Calculate scroll depth percentage
+  const calculateScrollDepth = () => {
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    
+    const scrollDepth = Math.round((scrollTop + windowHeight) / documentHeight * 100);
+    return Math.min(scrollDepth, 100);
+  };
+
   // Handle button clicks across the site
   useEffect(() => {
     if (!trackButtonClicks || typeof window === 'undefined') return;
@@ -78,18 +131,15 @@ const SessionManager = ({
                       target.closest('a') !== null;
 
       if (isButton) {
-        debugLog('Button clicked:', target.textContent?.trim() || target.tagName);
+        buttonClickCount.current += 1;
+        debugLog(`Button clicked (${buttonClickCount.current}/2):`, target.textContent?.trim() || target.tagName);
         
-        // Start recording if not already recording
-        if (!isRecording && !hasStartedRef.current) {
-          debugLog('🎬 Starting session recording on button click!');
-          await startRecording();
-          hasStartedRef.current = true;
+        // Check if we should start recording
+        await checkEngagementThreshold();
+        
+        // Reset inactivity timer if already recording
+        if (isRecording) {
           resetInactivityTimer();
-        } else if (isRecording) {
-          // Reset inactivity timer if already recording
-          resetInactivityTimer();
-          debugLog('Session recording already active, resetting inactivity timer');
         }
       }
     };
@@ -100,25 +150,51 @@ const SessionManager = ({
     return () => {
       document.removeEventListener('click', handleClick, { capture: true });
     };
-  }, [isRecording, startRecording, trackButtonClicks, debugMode]);
+  }, [isRecording, trackButtonClicks, debugMode]);
 
-  // Handle user activity to reset inactivity timer
+  // Handle scroll tracking and user activity
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    
+    const handleScroll = async () => {
+      const currentScrollDepth = calculateScrollDepth();
+      
+      if (currentScrollDepth > maxScrollDepth.current) {
+        maxScrollDepth.current = currentScrollDepth;
+        
+        // Check if 50% scroll threshold is reached
+        if (currentScrollDepth >= 50 && !hasReachedScrollThreshold.current) {
+          hasReachedScrollThreshold.current = true;
+          debugLog(`📜 50% scroll depth reached! (${currentScrollDepth}%)`);
+          
+          // Check if we should start recording
+          await checkEngagementThreshold();
+        }
+      }
+      
+      // Reset inactivity timer if recording
+      if (isRecording) {
+        resetInactivityTimer();
+      }
+    };
+
     const handleActivity = () => {
       if (isRecording) {
         resetInactivityTimer();
       }
     };
 
+    // Add scroll listener
+    document.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Add other activity listeners
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'touchstart'];
     activityEvents.forEach(event => {
       document.addEventListener(event, handleActivity, { passive: true });
     });
 
     return () => {
+      document.removeEventListener('scroll', handleScroll);
       activityEvents.forEach(event => {
         document.removeEventListener(event, handleActivity);
       });
@@ -143,28 +219,54 @@ const SessionManager = ({
     }
   }, [isRecording]);
 
-  // Debug info display (only in development and after mounting)
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup timers
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Debug info display (only in debug mode and after mounting)
   if (debugMode && isMounted) {
     return (
       <div style={{
         position: 'fixed',
         bottom: '16px',
         right: '16px',
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
         color: 'white',
         padding: '12px',
         borderRadius: '8px',
         fontSize: '12px',
         fontFamily: 'monospace',
-        zIndex: 50,
-        minWidth: '250px'
+        zIndex: 9999,
+        minWidth: '280px',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
       }}>
-        <div>Recording: {isRecording ? '🔴 ACTIVE' : hasStartedRef.current ? '⏹️ STOPPED' : '⏳ WAITING FOR CLICK'}</div>
+        <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#60a5fa' }}>
+          📊 Session Recording Debug
+        </div>
+        <div>Recording: {isRecording ? '🔴 ACTIVE' : hasStartedRef.current ? '⏹️ STOPPED' : '⏳ WAITING FOR ENGAGEMENT'}</div>
         <div>Session ID: {sessionId || 'None'}</div>
-        <div>Events: {eventCount}</div>
+        <div>Events Captured: {eventCount}</div>
+        <div>Button Clicks: {buttonClickCount.current}/2</div>
+        <div>Max Scroll Depth: {maxScrollDepth.current}% (need 50%)</div>
         <div>Last Activity: {Math.round((Date.now() - lastActivityRef.current) / 1000)}s ago</div>
         {!isRecording && !hasStartedRef.current && (
-          <div style={{ color: '#fbbf24', marginTop: '4px' }}>👆 Click any button to start recording</div>
+          <div style={{ color: '#fbbf24', marginTop: '4px', fontSize: '11px' }}>
+            🎯 Waiting for: 2 button clicks OR 50% scroll depth
+          </div>
+        )}
+        {isRecording && (
+          <div style={{ color: '#10b981', marginTop: '4px', fontSize: '11px' }}>
+            ⏰ Auto-save: after 60s or on tab close
+          </div>
         )}
         {isRecording && (
           <div style={{ marginTop: '8px' }}>
@@ -174,10 +276,11 @@ const SessionManager = ({
                 backgroundColor: '#3b82f6',
                 color: 'white',
                 border: 'none',
-                padding: '4px 8px',
+                padding: '6px 12px',
                 borderRadius: '4px',
-                fontSize: '10px',
-                cursor: 'pointer'
+                fontSize: '11px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
               }}
             >
               💾 Manual Save
@@ -188,7 +291,7 @@ const SessionManager = ({
     );
   }
 
-  // Invisible component in production
+  // Invisible component when debug mode is off
   return null;
 };
 
