@@ -26,5 +26,6 @@ module.exports = {
   environment: process.env.NODE_ENV || 'development',
   
   // Frontend tracking script configuration
-  trackingScriptUrl: 'http://localhost:8080/track.js'
+  trackingScriptUrl: process.env.TRACKING_SCRIPT_URL || 'http://localhost:8080/track.js',
+  // trackingScriptUrl: 'http://localhost:8080/track.js'
 };
