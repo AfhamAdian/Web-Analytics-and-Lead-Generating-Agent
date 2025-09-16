@@ -1,4 +1,4 @@
-const BACKEND_URL = "http://localhost:5000/api";
+const BACKEND_URL = "https://web-analytics-backend-final.onrender.com/api";
 
 (function () {
   try {
