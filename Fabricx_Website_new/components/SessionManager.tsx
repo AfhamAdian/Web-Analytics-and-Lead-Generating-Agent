@@ -24,11 +24,9 @@ const SessionManager = ({
     sessionId, 
     startRecording, 
     stopRecording, 
-    eventCount,
-    manualSave
+    eventCount
   } = useSessionRecorder();
   
-  const [isMounted, setIsMounted] = useState(false);
   const hasStartedRef = useRef(false);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -41,7 +39,7 @@ const SessionManager = ({
 
   // Handle client-side mounting
   useEffect(() => {
-    setIsMounted(true);
+    // Component initialized
   }, []);
 
   // Debug logging function
@@ -228,65 +226,7 @@ const SessionManager = ({
     };
   }, []);
 
-  // Debug info display (only in development and after mounting)
-  if (debugMode && isMounted) {
-    return (
-      <div style={{
-        position: 'fixed',
-        bottom: '16px',
-        right: '16px',
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        color: 'white',
-        padding: '12px',
-        borderRadius: '8px',
-        fontSize: '12px',
-        fontFamily: 'monospace',
-        zIndex: 50,
-        minWidth: '250px'
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#60a5fa' }}>
-          📊 Session Recording Debug
-        </div>
-        <div>Recording: {isRecording ? '🔴 ACTIVE' : hasStartedRef.current ? '⏹️ STOPPED' : '⏳ WAITING FOR ENGAGEMENT'}</div>
-        <div>Session ID: {sessionId || 'None'}</div>
-        <div>Events Captured: {eventCount}</div>
-        <div>Button Clicks: {buttonClickCount.current}/2</div>
-        <div>Max Scroll Depth: {maxScrollDepth.current}% (need 70%)</div>
-        <div>Last Activity: {Math.round((Date.now() - lastActivityRef.current) / 1000)}s ago</div>
-        {!isRecording && !hasStartedRef.current && (
-          <div style={{ color: '#fbbf24', marginTop: '4px', fontSize: '11px' }}>
-            🎯 Waiting for: 2 button clicks OR 70% scroll depth
-          </div>
-        )}
-        {isRecording && (
-          <>
-            <div style={{ color: '#10b981', marginTop: '4px', fontSize: '11px' }}>
-              🕐 Auto-save: after 120s or on tab close
-            </div>
-            <div style={{ marginTop: '8px' }}>
-              <button
-                onClick={manualSave}
-                style={{
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  padding: '6px 12px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                💾 Manual Save
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  // Invisible component in production
+  // Component is completely invisible - no UI rendering
   return null;
 };
 

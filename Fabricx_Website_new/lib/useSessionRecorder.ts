@@ -331,16 +331,6 @@ export const useSessionRecorder = () => {
     };
   }, [isRecording]);
 
-  // Manual save function for testing
-  const manualSave = useCallback(async () => {
-    if (eventsRef.current.length > 0 && sessionId) {
-      console.log('🔧 Manual save triggered');
-      await saveSession(eventsRef.current, sessionId);
-    } else {
-      console.log('⚠️ No session data to save');
-    }
-  }, [sessionId, saveSession]);
-
   return {
     events,
     isRecording,
@@ -348,7 +338,6 @@ export const useSessionRecorder = () => {
     startRecording,
     stopRecording,
     saveSession,
-    manualSave,
     eventCount: events.length
   };
 };
