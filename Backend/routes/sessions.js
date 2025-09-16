@@ -1,14 +1,8 @@
-/**
- * Sessions Routes
- * Routes for session recording and replay functionality
- */
-
 const express = require('express');
 const router = express.Router();
 const { getSessionRecordings, getSessionRecording } = require('../controllers/sessions');
 const authMiddleware = require('../middlewares/auth');
 
-// Apply authentication middleware to all routes
 router.use(authMiddleware);
 
 /**

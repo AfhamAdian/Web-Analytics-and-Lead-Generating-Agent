@@ -1,12 +1,8 @@
-// Dashboard Controller - Handles dashboard and analytics display endpoints
-// Integrates site management, analytics calculations, and dashboard data
-
 const supabase = require('../supabaseClient');
 const crypto = require('crypto');
 const config = require('../config');
 
 // ===== HELPER FUNCTIONS =====
-
 function sanitizeUserId(userId) {
   if (userId.startsWith('user_')) {
     return userId.substring(5);
@@ -20,8 +16,8 @@ function sanitizeUserId(userId) {
   return crypto.randomUUID();
 }
 
-// ===== USER FUNCTIONS =====
 
+// ===== USER FUNCTIONS =====
 async function getUserByEmail(email) {
   try {
     const { data: user, error } = await supabase
@@ -66,8 +62,8 @@ async function getOwnerIdByEmail(email) {
   }
 }
 
-// ===== SITE FUNCTIONS =====
 
+// ===== SITE FUNCTIONS =====
 async function getSiteByIdAndOwner(siteId, ownerId) {
   try {
     const { data: siteData, error: siteError } = await supabase
@@ -144,8 +140,8 @@ async function createSite(siteData) {
   }
 }
 
-// ===== SESSION FUNCTIONS =====
 
+// ===== SESSION FUNCTIONS =====
 async function getSessionsBySite(siteId, options = {}) {
   try {
     let query = supabase
@@ -177,8 +173,8 @@ async function getSessionsBySite(siteId, options = {}) {
   }
 }
 
-// ===== EVENT FUNCTIONS =====
 
+// ===== EVENT FUNCTIONS =====
 async function getEventsBySite(siteId, options = {}) {
   try {
     let query = supabase
@@ -240,8 +236,8 @@ async function getEventsByVisitor(uid, siteId) {
   }
 }
 
-// ===== VISITOR FUNCTIONS =====
 
+// ===== VISITOR FUNCTIONS =====
 async function getVisitorsBySite(siteId, options = {}) {
   try {
     let query = supabase
@@ -295,8 +291,8 @@ async function getVisitorsBySite(siteId, options = {}) {
   }
 }
 
-// ===== ANALYTICS UTILITY FUNCTIONS (previously in analyticsUtils) =====
 
+// ===== ANALYTICS UTILITY FUNCTIONS (previously in analyticsUtils) =====
 function calculateAnalyticsStats(data) {
   const { sessions = [], events = [], visitors = [], leads = [] } = data;
 
@@ -366,72 +362,11 @@ function processDailyTrafficData(sessions = [], pageViewEvents = [], days = 30) 
   return dailyData;
 }
 
-function calculateLeadScore(visitor, visitorEvents = []) {
-  let leadScore = 0;
-  
-  // Base score factors
-  leadScore += (visitor.page_views || 0) * 5;
-  leadScore += (visitor.total_sessions || 0) * 10;
-  
-  // Time spent (based on session duration)
-  // Handle both cases: visitor.sessions array or individual visitor data
-  let totalDuration = 0;
-  if (visitor.sessions && Array.isArray(visitor.sessions)) {
-    totalDuration = visitor.sessions.reduce((sum, session) => {
-      return sum + (session.duration || 0);
-    }, 0);
-  }
-  leadScore += Math.min(totalDuration / 60, 30);
-  
-  // Event engagement
-  const clickEvents = visitorEvents.filter(e => e.event_type === 'click').length;
-  const formEvents = visitorEvents.filter(e => e.event_type === 'form_submit').length;
-  const scrollEvents = visitorEvents.filter(e => e.event_type === 'scroll').length;
-  
-  leadScore += clickEvents * 2;
-  leadScore += formEvents * 20;
-  leadScore += scrollEvents * 1;
-  
-  // Return visits bonus
-  if ((visitor.total_sessions || 0) > 1) {
-    leadScore += ((visitor.total_sessions || 0) - 1) * 15;
-  }
-  
-  // Lead status bonus
-  if (visitor.lead_status !== 'unknown' && visitor.lead_name) {
-    leadScore += 50;
-  }
-  
-  // Recent activity bonus
-  if (visitor.last_seen) {
-    const daysSinceLastSeen = (new Date() - new Date(visitor.last_seen)) / (1000 * 60 * 60 * 24);
-    if (daysSinceLastSeen < 1) {
-      leadScore += 20;
-    } else if (daysSinceLastSeen < 7) {
-      leadScore += 10;
-    }
-  }
+//FIXME: fix leads score
+const { calculateDashboardLeadScore } = require('../utils/leadScore');
 
-  // Determine lead quality
-  let leadQuality = 'Cold';
-  if (leadScore >= 100) leadQuality = 'Hot';
-  else if (leadScore >= 50) leadQuality = 'Warm';
 
-  return {
-    ...visitor,
-    leadScore: Math.round(leadScore),
-    leadQuality,
-    engagementLevel: clickEvents + formEvents + scrollEvents,
-    totalDuration: Math.round(totalDuration / 60), // in minutes
-    eventCounts: {
-      clicks: clickEvents,
-      forms: formEvents,
-      scrolls: scrollEvents
-    }
-  };
-}
-
-// ===== CONTROLLER FUNCTIONS =====
+ // ===== CONTROLLER FUNCTIONS =====
 
 // Handle dashboard data retrieval
 async function handleDashboard(req, res) {
@@ -747,7 +682,7 @@ async function handleSiteVisitors(req, res) {
     const visitorsWithScores = (visitorsData || []).map((visitor, index) => {
       try {
         const visitorEvents = eventResults[index]?.events || [];
-        return calculateLeadScore(visitor, visitorEvents);
+  return calculateDashboardLeadScore(visitor, visitorEvents);
       } catch (error) {
         console.error('Error calculating lead score for visitor:', visitor.uid, error);
         // Return visitor with default values on error
@@ -798,5 +733,5 @@ module.exports = {
   getVisitorsBySite,
   calculateAnalyticsStats,
   processDailyTrafficData,
-  calculateLeadScore
+  calculateDashboardLeadScore
 };
