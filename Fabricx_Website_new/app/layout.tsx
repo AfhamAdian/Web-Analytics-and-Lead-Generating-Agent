@@ -167,12 +167,14 @@ export default function RootLayout({
           <ButtonClickTracker />
 
           {/* Tracking script injection */}
-          <Script
-            src="http://localhost:8080/track.js"
-            site-id="99a601b7-6851-4c2d-a2ba-95cb932ea54c"
-            strategy="afterInteractive"
-            async
-          />
+<Script
+  src="https://web-analytics-frontend-final.vercel.app/track.js"
+  site-id="b3d7cfd4-2b56-48db-84ec-0990a1ac9208"
+  strategy="afterInteractive"
+  async
+/>
+
+
         </body>
         {/* </ChatProvider> */}
       </html>

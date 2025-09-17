@@ -81,6 +81,7 @@ const getSessionRecordings = async (req, res) => {
         const pageViews = events.filter(e => e.event_type === 'page_view').length;
 
         // Calculate lead score based on engagement
+        //FIXME: fix leads score
         const leadScore = calculateLeadScore({
           pageViews: recording.sessions.visitors.page_views,
           duration: recording.sessions.duration || 0,
@@ -324,6 +325,8 @@ const getSessionRecording = async (req, res) => {
  * @param {Object} metrics - Engagement metrics
  * @returns {number} Lead score
  */
+
+//FIXME: fix leads score
 const calculateLeadScore = (metrics) => {
   let score = 0;
   

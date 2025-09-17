@@ -20,7 +20,8 @@ function Login() {
     setLoading(true);
     
     try {
-      const res = await axios.post('http://localhost:5000/api/login', form);
+      // console.log('API URL:', process.env.REACT_APP_API_URL);
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/login`, form);
       localStorage.setItem('token', res.data.token);
       navigate('/dashboard');
     } catch (err) {

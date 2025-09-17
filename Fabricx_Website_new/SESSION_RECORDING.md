@@ -6,8 +6,11 @@ This implementation adds comprehensive session recording to the Fabricx website 
 ## Features
 
 ### 🎬 Button-Triggered Session Recording
-- **Click-to-start**: Recording begins only when a user clicks any button, link, or clickable element
-- **Button click detection**: Any button, link, or clickable element triggers recording start
+- **2-click trigger**: Recording begins only after user clicks 2 buttons, links, or clickable elements
+- **Visual banner**: Live recording status banner with controls and information
+- **Manual save button**: Users can manually save sessions during recording
+- **Console logging**: Clear console messages when recording starts and is active
+- **Auto-stop duration**: Sessions automatically stop after 15 seconds of recording
 - **Inactivity timeout**: Sessions automatically stop after 10 minutes of inactivity
 
 ### 💾 Auto-save Functionality
@@ -96,12 +99,20 @@ fetch('/api/sessions')
 
 The session recording is automatically enabled when you include the components in your layout. No additional setup required!
 
+### Recording Banner
+When recording is active, users will see a banner at the top of the page showing:
+- **Recording status**: Visual indicator with pulsing dot
+- **Session ID**: Last 8 characters of the session identifier
+- **Event count**: Number of events captured in real-time
+- **Duration timer**: Live recording duration in MM:SS format
+- **Auto-save countdown**: Shows remaining time until auto-save (15s)
+- **Manual controls**: "💾 Save Now" and "⏹️ Stop" buttons
+
 ### Debug Mode
-In development, you'll see a debug overlay showing:
-- Recording status (🔴 = recording, ⏹️ = stopped)
-- Current session ID
-- Number of events captured
-- Time since last activity
+In development, you'll see additional debug information:
+- **Engagement tracking**: Button clicks (X/2) and scroll depth
+- **Debug banner**: Shows when waiting for user engagement
+- **Console logging**: Detailed debug messages in browser console
 
 ### Configuration Options
 ```tsx

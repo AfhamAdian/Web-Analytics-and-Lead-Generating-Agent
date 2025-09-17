@@ -100,7 +100,7 @@ export const useSessionRecorder = () => {
       console.log(`📊 Sending all ${eventsToSend.length} events without truncation`);
       
       // Send to your backend
-      const response = await fetch('http://localhost:5000/api/session-recording', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/session-recording`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -136,7 +136,7 @@ export const useSessionRecorder = () => {
       }
 
       // Get or create the tracking session in your analytics backend
-      const response = await fetch('http://localhost:5000/api/analytics/session', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/analytics/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -207,6 +207,7 @@ export const useSessionRecorder = () => {
       stopFn.current = stopFunction;
       
       setIsRecording(true);
+      console.log('🎬 Screen recording is now active! Session ID:', newSessionId);
       console.log('Session recording started:', newSessionId);
     } catch (error) {
       console.error('Failed to start recording:', error);
@@ -283,8 +284,8 @@ export const useSessionRecorder = () => {
         try {
           // Use sendBeacon with correct backend URL and proper format
           const blob = new Blob([JSON.stringify(sessionData)], { type: 'application/json' });
-          const success = navigator.sendBeacon('http://localhost:5000/api/session-recording', blob);
-          
+          const success = navigator.sendBeacon(`${process.env.NEXT_PUBLIC_API_URL}/api/session-recording`, blob);
+
           if (success) {
             console.log('✅ Session data sent via sendBeacon on page unload');
           } else {
@@ -331,16 +332,6 @@ export const useSessionRecorder = () => {
     };
   }, [isRecording]);
 
-  // Manual save function for testing
-  const manualSave = useCallback(async () => {
-    if (eventsRef.current.length > 0 && sessionId) {
-      console.log('🔧 Manual save triggered');
-      await saveSession(eventsRef.current, sessionId);
-    } else {
-      console.log('⚠️ No session data to save');
-    }
-  }, [sessionId, saveSession]);
-
   return {
     events,
     isRecording,
@@ -348,7 +339,6 @@ export const useSessionRecorder = () => {
     startRecording,
     stopRecording,
     saveSession,
-    manualSave,
     eventCount: events.length
   };
 };

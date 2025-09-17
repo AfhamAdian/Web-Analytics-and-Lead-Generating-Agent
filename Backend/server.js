@@ -12,6 +12,7 @@ const config = require('./config');
 const app = express();
 
 // Middleware setup
+app.use(express.text());
 app.use(morgan('dev')); // Logging middleware
 app.use(cors(config.corsOptions)); // CORS middleware
 app.use(express.json({ limit: '50mb' })); // JSON parsing middleware with increased limit for session recordings
