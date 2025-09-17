@@ -360,7 +360,7 @@ export default function WebAppDashboard() {
                       <Globe className="text-white" size={24} />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900">Top Countries</h2>
+                      <h2 className="text-xl font-bold text-gray-900">Top Regions</h2>
                       <p className="text-gray-500">Visitor distribution by country</p>
                     </div>
                   </div>
@@ -390,7 +390,7 @@ export default function WebAppDashboard() {
                       <MapPin className="text-white" size={24} />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900">Top Regions</h2>
+                      <h2 className="text-xl font-bold text-gray-900">Top Cities</h2>
                       <p className="text-gray-500">Visitor distribution by region</p>
                     </div>
                   </div>
@@ -436,10 +436,10 @@ export default function WebAppDashboard() {
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-green-600">
-                          {dashboardAnalytics.cookieConsent.accepted.toLocaleString()}
+                          {dashboardAnalytics.cookieConsent.rejected.toLocaleString()}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {((dashboardAnalytics.cookieConsent.accepted / (dashboardAnalytics.cookieConsent.accepted + dashboardAnalytics.cookieConsent.rejected)) * 100).toFixed(1)}%
+                          {((dashboardAnalytics.cookieConsent.rejected / (dashboardAnalytics.cookieConsent.accepted + dashboardAnalytics.cookieConsent.rejected)) * 100).toFixed(1)}%
                         </div>
                       </div>
                     </div>
@@ -453,10 +453,10 @@ export default function WebAppDashboard() {
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-red-600">
-                          {dashboardAnalytics.cookieConsent.rejected.toLocaleString()}
+                          {dashboardAnalytics.cookieConsent.accepted.toLocaleString()}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {((dashboardAnalytics.cookieConsent.rejected / (dashboardAnalytics.cookieConsent.accepted + dashboardAnalytics.cookieConsent.rejected)) * 100).toFixed(1)}%
+                          {((dashboardAnalytics.cookieConsent.accepted / (dashboardAnalytics.cookieConsent.accepted + dashboardAnalytics.cookieConsent.rejected)) * 100).toFixed(1)}%
                         </div>
                       </div>
                     </div>

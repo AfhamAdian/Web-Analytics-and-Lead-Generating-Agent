@@ -169,10 +169,12 @@ export default function RootLayout({
           {/* Tracking script injection */}
 <Script
   src="https://web-analytics-frontend-final.vercel.app/track.js"
-  site-id="38945b28-6a6f-480a-b299-bda37b91c4b3"
+  site-id="b3d7cfd4-2b56-48db-84ec-0990a1ac9208"
   strategy="afterInteractive"
   async
 />
+
+
         </body>
         {/* </ChatProvider> */}
       </html>
