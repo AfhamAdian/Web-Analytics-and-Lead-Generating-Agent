@@ -207,6 +207,7 @@ export const useSessionRecorder = () => {
       stopFn.current = stopFunction;
       
       setIsRecording(true);
+      console.log('🎬 Screen recording is now active! Session ID:', newSessionId);
       console.log('Session recording started:', newSessionId);
     } catch (error) {
       console.error('Failed to start recording:', error);

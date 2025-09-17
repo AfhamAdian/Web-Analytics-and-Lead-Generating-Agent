@@ -24,7 +24,9 @@ const SessionManager = ({
     sessionId, 
     startRecording, 
     stopRecording, 
-    eventCount
+    saveSession,
+    eventCount,
+    events
   } = useSessionRecorder();
   
   const hasStartedRef = useRef(false);
@@ -36,6 +38,11 @@ const SessionManager = ({
   const buttonClickCount = useRef(0);
   const maxScrollDepth = useRef(0);
   const hasReachedScrollThreshold = useRef(false);
+  
+  // Recording timer state
+  const [recordingTime, setRecordingTime] = useState(0);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveCountdownRef = useRef<number>(15);
 
   // Handle client-side mounting
   useEffect(() => {
@@ -60,25 +67,61 @@ const SessionManager = ({
     // Stop recording after 10 minutes of inactivity
     inactivityTimerRef.current = setTimeout(() => {
       if (isRecording) {
+        console.log('⏰ Stopping recording due to 10 minutes of inactivity');
         debugLog('Stopping recording due to inactivity');
         stopRecording();
       }
     }, 10 * 60 * 1000); // 10 minutes
+    
+    // Note: DO NOT clear autoSaveTimerRef here - it's separate from inactivity
   };
 
+  // 15 s timer 79-125
   // Start auto-save timer when recording begins
   const startAutoSaveTimer = () => {
+    // Clear any existing timer first
     if (autoSaveTimerRef.current) {
+      console.log('🔄 Clearing existing auto-save timer before starting new one');
       clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
     }
 
-    // Auto-save and stop recording after 120 seconds
-    autoSaveTimerRef.current = setTimeout(async () => {
-      if (isRecording && sessionId) {
-        debugLog('🕐 Auto-saving and stopping recording after 120 seconds');
-        await stopRecording(); // This will automatically save the session
+    console.log('🕐 Starting 15-second auto-save timer...');
+    
+    // Auto-save and stop recording after 15 seconds
+    const timerId = setTimeout(async () => {
+      console.log('⏰ 15 seconds elapsed - triggering auto-save');
+      
+      // Clear the timer reference since it's about to execute
+      autoSaveTimerRef.current = null;
+      
+      if (isRecording && sessionId && events.length > 0) {
+        debugLog('🕐 Auto-saving and stopping recording after 15 seconds');
+        console.log('💾 Auto-save: Saving session with', events.length, 'events');
+        
+        try {
+          // Save the session first
+          await saveSession(events, sessionId);
+          console.log('✅ Auto-save completed successfully');
+          
+          // Then stop recording
+          await stopRecording();
+        } catch (error) {
+          console.error('❌ Auto-save failed:', error);
+          // Still try to stop recording even if save fails
+          await stopRecording();
+        }
+      } else {
+        console.warn('❌ Auto-save skipped - no recording, sessionId, or events', {
+          isRecording,
+          sessionId: sessionId ? 'exists' : 'missing',
+          eventCount: events.length
+        });
       }
-    }, 120 * 1000); // 120 seconds
+    }, 15 * 1000); // 15 seconds
+    // 15 seconds
+    autoSaveTimerRef.current = timerId;
+    console.log('✅ Auto-save timer set with ID:', timerId);
   };
 
   // Check if we should start recording based on engagement criteria
@@ -88,11 +131,12 @@ const SessionManager = ({
     const shouldStart = buttonClickCount.current >= 2 || hasReachedScrollThreshold.current;
     
     if (shouldStart) {
+      console.log('🎬 Screen recording started after 2 button clicks!');
       debugLog(`🎬 Starting session recording! Criteria met - Clicks: ${buttonClickCount.current}, Scroll threshold reached: ${hasReachedScrollThreshold.current}`);
       await startRecording();
       hasStartedRef.current = true;
       resetInactivityTimer();
-      startAutoSaveTimer(); // Start the 120s timer
+      // Note: startAutoSaveTimer() is now called automatically via useEffect when isRecording becomes true
     }
   };
 
@@ -191,12 +235,12 @@ const SessionManager = ({
         document.removeEventListener(event, handleActivity);
       });
       
+      // Clean up inactivity timer but NOT auto-save timer
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
       }
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
+      // NOTE: Removed auto-save timer cleanup from here to prevent interference
+      // The auto-save timer should only be cleared when recording stops or component unmounts
     };
   }, [isRecording]);
 
@@ -211,7 +255,85 @@ const SessionManager = ({
   useEffect(() => {
     if (isRecording) {
       resetInactivityTimer();
+      // Note: Auto-save timer is now handled by dedicated useEffect
     }
+  }, [isRecording]);
+
+  // Recording timer effect
+  useEffect(() => {
+    if (isRecording) {
+      setRecordingTime(0);
+      autoSaveCountdownRef.current = 15;
+      
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          autoSaveCountdownRef.current = Math.max(0, 15 - newTime);
+          
+          // Log countdown every 5 seconds for debugging
+          if (newTime % 5 === 0 && newTime <= 15) {
+            console.log(`⏱️ Auto-save countdown: ${15 - newTime} seconds remaining`);
+          }
+          
+          return newTime;
+        });
+      }, 1000);
+    } else {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      setRecordingTime(0);
+      autoSaveCountdownRef.current = 15;
+    }
+
+    return () => {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    };
+  }, [isRecording]);
+
+  // Dedicated auto-save timer effect
+  useEffect(() => {
+    if (isRecording) {
+      // Start the auto-save timer when recording begins
+      if (!autoSaveTimerRef.current) {
+        console.log('🎯 Starting dedicated auto-save timer for recording session');
+        startAutoSaveTimer();
+      }
+    } else {
+      // Clear the auto-save timer when recording stops
+      if (autoSaveTimerRef.current) {
+        console.log('🛑 Recording stopped - clearing auto-save timer');
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      // Cleanup only when effect is destroyed (not on every re-run)
+      if (!isRecording && autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [isRecording]);
+
+  // Monitor auto-save timer state for debugging
+  useEffect(() => {
+    if (!isRecording) return;
+    
+    const checkTimer = () => {
+      if (isRecording && !autoSaveTimerRef.current) {
+        console.warn('⚠️ Recording is active but auto-save timer is missing! Restarting timer...');
+        startAutoSaveTimer();
+      }
+    };
+
+    const interval = setInterval(checkTimer, 3000); // Check every 3 seconds
+    return () => clearInterval(interval);
   }, [isRecording]);
 
   // Cleanup timers on component unmount
@@ -219,15 +341,112 @@ const SessionManager = ({
     return () => {
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
+        console.log('🧹 Cleanup: Cleared inactivity timer');
       }
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
+        console.log('🧹 Cleanup: Cleared auto-save timer');
+      }
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        console.log('🧹 Cleanup: Cleared recording timer');
       }
     };
   }, []);
 
-  // Component is completely invisible - no UI rendering
-  return null;
+  // Manual save function
+  const handleManualSave = async () => {
+    if (isRecording && sessionId && events.length > 0) {
+      debugLog('💾 Manual save triggered by user');
+      console.log('💾 Manual save: Saving session with', events.length, 'events');
+      await saveSession(events, sessionId);
+      console.log('✅ Manual save completed successfully');
+    }
+  };
+
+  // BANNER UI (disabled for now)
+  // Render recording banner and controls
+  // return (
+  //   <>
+  //     {/* Recording Status Banner */}
+  //     {(isRecording || debugMode) && (
+  //       <div className={`fixed top-0 left-0 right-0 z-50 ${
+  //         isRecording 
+  //           ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg' 
+  //           : 'bg-gradient-to-r from-gray-600 to-gray-700 text-gray-200 shadow-md'
+  //       } px-4 py-2`}>
+  //         <div className="max-w-7xl mx-auto flex items-center justify-between">
+  //           <div className="flex items-center space-x-4">
+  //             <div className="flex items-center space-x-2">
+  //               <div className={`w-3 h-3 rounded-full ${
+  //                 isRecording ? 'bg-white animate-pulse' : 'bg-gray-400'
+  //               }`}></div>
+  //               <span className="font-semibold">
+  //                 {isRecording ? '🎬 Recording Session' : '⏹️ Recording Stopped'}
+  //               </span>
+  //             </div>
+              
+  //             {sessionId && (
+  //               <div className="flex items-center space-x-1">
+  //                 <span className="text-xs opacity-60">ID:</span>
+  //                 <span className="text-sm font-mono bg-black/20 px-2 py-1 rounded">
+  //                   {sessionId.slice(-8)}
+  //                 </span>
+  //               </div>
+  //             )}
+              
+  //             {isRecording && (
+  //               <div className="flex items-center space-x-1">
+  //                 <span className="text-xs opacity-60">Events:</span>
+  //                 <span className="text-sm font-bold bg-black/20 px-2 py-1 rounded">
+  //                   {eventCount}
+  //                 </span>
+  //               </div>
+  //             )}
+              
+  //             {isRecording && (
+  //               <div className="flex items-center space-x-1">
+  //                 <span className="text-xs opacity-60">Duration:</span>
+  //                 <span className="text-sm font-mono bg-black/20 px-2 py-1 rounded">
+  //                   {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+  //                 </span>
+  //               </div>
+  //             )}
+              
+  //             {isRecording && (
+  //               <div className="text-xs opacity-80 bg-black/20 px-2 py-1 rounded">
+  //                 Auto-save in {Math.max(0, 15 - recordingTime)}s
+  //               </div>
+  //             )}
+  //           </div>
+            
+  //           {/* Control Buttons */}
+  //           {isRecording && (
+  //             <div className="flex items-center space-x-2">
+  //               <button
+  //                 onClick={handleManualSave}
+  //                 className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm font-medium transition-colors"
+  //               >
+  //                 💾 Save Now
+  //               </button>
+  //               <button
+  //                 onClick={stopRecording}
+  //                 className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm font-medium transition-colors"
+  //               >
+  //                 ⏹️ Stop
+  //               </button>
+  //             </div>
+  //           )}
+  //         </div>
+  //       </div>
+  //     )}
+      
+  //     {/* Push content down when banner is visible */}
+  //     {(isRecording || debugMode) && (
+  //       <div className="h-12"></div>
+  //     )}
+  //   </>
+  // );
 };
 
 export default SessionManager;
